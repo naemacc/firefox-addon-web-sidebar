@@ -89,13 +89,98 @@ function applyMobile(details) {
     }
   }
   if (!on && details.frameAncestors)
-    on = details.frameAncestors.some((a) => frameMobile.get(a.frameId) === true);
+    on = details.frameAncestors.some(
+      (a) => frameMobile.get(a.frameId) === true,
+    );
   if (!on) return {};
   return {
     requestHeaders: details.requestHeaders.map((h) =>
       h.name.toLowerCase() === "user-agent" ? { ...h, value: MOBILE_UA } : h,
     ),
   };
+}
+
+// ---------- framing-check patches ----------
+// Many sites read (window.top || window).location.origin to find out where they run. Inside the
+// sidebar the top window is our own extension page, so Firefox throws and the site's script
+// stops (duck.ai, for one, then leaves its Ask button disabled). For scripts loaded inside the
+// sidebar, the expression is rewritten to use the frame's own location. window.top cannot be
+// faked from a content script, so rewriting the script is the only option. The patterns are
+// kept narrow on purpose; anything that does not match is passed through unchanged.
+const PATCHES = [
+  [/\(\s*window\.top\s*\|\|\s*window\s*\)\.location\b/g, "(window).location"],
+  [
+    /\(\s*window\.parent\s*\|\|\s*window\s*\)\.location\b/g,
+    "(window).location",
+  ],
+  [/\bwindow\.top\.location\.origin\b/g, "window.location.origin"],
+  // "am I framed?" comparisons: framed is reported as not framed
+  [
+    /\b(?:window\.self|window)\s*([!=]==?)\s*window\.top(?![\w$.])/g,
+    (_m, op) => (op[0] === "!" ? "false" : "true"),
+  ],
+  [
+    /\bwindow\.top\s*([!=]==?)\s*(?:window\.self|window)(?![\w$.])/g,
+    (_m, op) => (op[0] === "!" ? "false" : "true"),
+  ],
+  [
+    /\bwindow\.parent\s*([!=]==?)\s*(?:window\.self|window)(?![\w$.])/g,
+    (_m, op) => (op[0] === "!" ? "false" : "true"),
+  ],
+  [
+    /\b(?:window\.self|window)\s*([!=]==?)\s*window\.parent(?![\w$.])/g,
+    (_m, op) => (op[0] === "!" ? "false" : "true"),
+  ],
+];
+const PATCH_DEBUG = false; // true: log every patched script in this background page's console
+const PATCH_QUICK = /window\s*\.\s*(top|parent)/; // cheap test before running the patterns
+let patchListener = null;
+
+function patchScript(details) {
+  if (!inSidebar(details)) return {};
+  let filter;
+  try {
+    filter = browser.webRequest.filterResponseData(details.requestId);
+  } catch {
+    return {};
+  }
+  const chunks = [];
+  filter.ondata = (e) => chunks.push(e.data);
+  filter.onstop = () => {
+    let out = null;
+    try {
+      const dec = new TextDecoder("utf-8", { fatal: true });
+      let text = "";
+      for (const c of chunks) text += dec.decode(c, { stream: true });
+      text += dec.decode();
+      if (PATCH_QUICK.test(text)) {
+        let hits = 0;
+        for (const [re, to] of PATCHES)
+          text = text.replace(re, (...a) => {
+            hits++;
+            return typeof to === "function" ? to(...a) : to;
+          });
+        if (PATCH_DEBUG) {
+          // show where scripts compare top/parent to something, in case a check is not covered
+          const cmp =
+            /.{0,60}(?:\b(?:top|parent)\b\s*[!=]==?|[!=]==?\s*(?:window\.)?(?:top|parent)\b).{0,60}/g;
+          const seen = (text.match(cmp) || []).slice(0, 6);
+          if (seen.length) console.log("[patch:left]", details.url, seen);
+        }
+        if (hits) {
+          out = new TextEncoder().encode(text);
+          if (PATCH_DEBUG) console.log("[patch]", details.url, "hits:", hits);
+        }
+      }
+    } catch {
+      out = null; // not valid UTF-8 or anything unexpected: leave the script as it was
+    }
+    if (out) filter.write(out);
+    else for (const c of chunks) filter.write(c);
+    filter.close();
+  };
+  filter.onerror = () => {};
+  return {};
 }
 
 // Full-page tabs: the sidebar itself is navigated to the site, and frame-nav.js (running there as
@@ -139,6 +224,10 @@ async function register() {
     browser.webRequest.onBeforeSendHeaders.removeListener(uaListener);
     uaListener = null;
   }
+  if (patchListener) {
+    browser.webRequest.onBeforeRequest.removeListener(patchListener);
+    patchListener = null;
+  }
   if (navScript) {
     try {
       await navScript.unregister();
@@ -160,6 +249,13 @@ async function register() {
     uaListener,
     { urls, tabId: -1 },
     ["blocking", "requestHeaders"],
+  );
+
+  patchListener = patchScript;
+  browser.webRequest.onBeforeRequest.addListener(
+    patchListener,
+    { urls, types: ["script"], tabId: -1 },
+    ["blocking"],
   );
 
   try {
