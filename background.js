@@ -98,8 +98,16 @@ function applyMobile(details) {
   };
 }
 
+// Full-page tabs: the sidebar itself is navigated to the site, and frame-nav.js (running there as
+// the top document) asks whether it is that situation. A normal browser tab always has sender.tab;
+// the sidebar never does, so the two cannot be confused. "home" puts our own sidebar page back.
+const isSidebarTop = (sender) => !sender.tab && sender.frameId === 0;
+
 // Only messages from our own sidebar page are accepted.
 browser.runtime.onMessage.addListener((m, sender) => {
+  if (m && m.ssb === "isDirect") return Promise.resolve(isSidebarTop(sender));
+  if (m && m.ssb === "home" && isSidebarTop(sender))
+    return browser.sidebarAction.setPanel({ panel: EXT_BASE + "sidebar.html" });
   if (!m || !sender.url || !sender.url.startsWith(EXT_BASE + "sidebar.html"))
     return;
   if (m.ssb === "reset") {
