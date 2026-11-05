@@ -8,7 +8,40 @@
 // the browser has it) and performs back/forward when asked.
 (() => {
   "use strict";
-  if (window === window.top) return;
+  if (window === window.top) {
+    returnButton();
+    return;
+  }
+
+  // When a tab is opened as a full page, the sidebar itself shows the site and nothing of the
+  // wrapper is left. Add a small edge tab that brings the wrapper back. Normal browser tabs are
+  // excluded by the background script (it only says yes for the sidebar's top document).
+  function returnButton() {
+    Promise.resolve(browser.runtime.sendMessage({ ssb: "isDirect" }))
+      .then((yes) => {
+        if (yes !== true) return;
+        const add = () => {
+          const host = document.createElement("div");
+          host.style.cssText =
+            "all:initial;position:fixed;left:0;top:50%;z-index:2147483647";
+          const root = host.attachShadow({ mode: "closed" });
+          root.innerHTML = `<style>
+            button{all:unset;box-sizing:border-box;display:grid;place-items:center;
+              width:10px;height:44px;margin-top:-22px;border-radius:0 8px 8px 0;
+              background:#6c8cff;opacity:.35;cursor:pointer;color:#fff;
+              font:600 15px system-ui,sans-serif;overflow:hidden;
+              transition:width .12s ease,opacity .12s ease}
+            button:hover,button:focus-visible{width:26px;opacity:1}
+          </style><button title="Back to Web Sidebar tabs" aria-label="Back to Web Sidebar tabs">\u2039</button>`;
+          root.querySelector("button").onclick = () =>
+            browser.runtime.sendMessage({ ssb: "home" }).catch(() => {});
+          document.documentElement.appendChild(host);
+        };
+        if (document.documentElement) add();
+        else document.addEventListener("DOMContentLoaded", add, { once: true });
+      })
+      .catch(() => {});
+  }
 
   // Tabs set to "Mobile site" are framed with this name (see sidebar.js). The background script
   // already sends a mobile User-Agent header for them; this makes navigator.* agree with it.

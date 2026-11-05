@@ -149,6 +149,31 @@
         color: #8f8f9d;
       }
 
+      /* placeholder shown for a tab that opens as a full page instead of in a frame */
+      #directPrompt {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 12px;
+        padding: 16px;
+        text-align: center;
+        background: var(--bg);
+        color: #8f8f9d;
+      }
+      #directGo {
+        padding: 6px 14px;
+        border: 1px solid #3b6bff;
+        border-radius: 6px;
+        background: #3b6bff;
+        color: var(--text);
+        cursor: pointer;
+      }
+      #directGo:hover {
+        background: #5a82ff;
+      }
+
       /* ---------- toolbar: collapse + back / forward / reload ---------- */
       .btn {
         appearance: none;
@@ -324,15 +349,15 @@
         padding-left: 8px;
       }
       .fhead {
-        --fw: calc(var(--icon) * 1.5);
-        --fh: calc(var(--icon) * 1.2);
+        --fw: calc(var(--icon) * 1.3);
+        --fh: calc(var(--icon) * 1.04);
         padding-left: calc((var(--tile-w) - var(--fw)) / 2);
       }
       .ficon {
         position: relative;
         display: block;
-        width: var(--fw, calc(var(--icon) * 1.5));
-        height: var(--fh, calc(var(--icon) * 1.2));
+        width: var(--fw, calc(var(--icon) * 1.3));
+        height: var(--fh, calc(var(--icon) * 1.04));
       }
       .ficon .shape {
         position: absolute;
@@ -1342,6 +1367,10 @@
             <div id="empty" hidden>
               No tabs yet. Press “New tab” and type a website or a search.
             </div>
+            <div id="directPrompt" hidden>
+              <div>This tab opens as a full page, not inside a frame.</div>
+              <button type="button" id="directGo">Open full page</button>
+            </div>
           </div>
 
           <div id="hot" hidden></div>
@@ -1378,6 +1407,17 @@
                 >Mobile site<small
                   >Identify as Firefox on Android. Reloads the tab when
                   changed.</small
+                ></span
+              >
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="directIn" />
+              <span class="track"></span>
+              <span class="stext"
+                >Full page<small
+                  >Load the site as the whole sidebar instead of in a frame, for
+                  sites that break when framed. Hides the tab bar while open;
+                  use the edge tab or reopen the sidebar to return.</small
                 ></span
               >
             </label>

@@ -82,6 +82,8 @@ const formTitle = $("formTitle");
 const nameIn = $("nameIn");
 const urlIn = $("urlIn");
 const mobileIn = $("mobileIn");
+const directIn = $("directIn");
+const directPrompt = $("directPrompt");
 const toastEl = $("toast");
 const menu = $("menu");
 const shell = $("shell");
@@ -213,6 +215,7 @@ async function load() {
         name: t.name || "",
         kind,
         mobile: t.mobile === true,
+        direct: t.direct === true,
         // only regular tabs live in folders
         folder: kind === "regular" && folderIds.has(t.folder) ? t.folder : null,
       };
@@ -436,7 +439,19 @@ function startFrame(f, url, mobile) {
     });
 }
 
+// "Full page" tabs are not framed: the sidebar itself navigates to the site (see goDirect), so
+// frame-only problems (storage partitioning, framing checks) do not apply. Nothing of this
+// wrapper is left while that page is open; reopening the sidebar brings it back.
+function goDirect(url) {
+  location.replace(url);
+}
+
 function show(tab) {
+  directPrompt.hidden = tab.direct !== true;
+  if (tab.direct) {
+    for (const fr of made.values()) fr.classList.add("hidden");
+    return;
+  }
   let f = made.get(tab.id);
   // Switching between mobile and desktop needs a fresh frame, so the whole page is rebuilt.
   if (f && f.dataset.mobile !== String(tab.mobile === true)) {
@@ -976,9 +991,20 @@ function makeTab(t) {
 /* ---------- actions ---------- */
 
 async function select(id) {
+  const t = model.tabs.find((x) => x.id === id);
+  if (t?.direct) {
+    if (id !== model.activeId) await browser.storage.local.set({ active: id });
+    goDirect(t.url);
+    return;
+  }
   if (id === model.activeId) return;
   await browser.storage.local.set({ active: id });
 }
+
+$("directGo").onclick = () => {
+  const t = model.tabs.find((x) => x.id === model.activeId);
+  if (t) goDirect(t.url);
+};
 
 function clearDropMarks() {
   for (const el of rail.querySelectorAll(
@@ -1064,7 +1090,11 @@ async function deleteFolder(id, keepTabs) {
 // A tab only has a page (an iframe) once it has been opened. Tabs without one are shown greyed out.
 function markLoaded() {
   for (const el of rail.querySelectorAll(".tab[data-id]"))
-    el.classList.toggle("unloaded", !made.has(el.dataset.id));
+    el.classList.toggle(
+      "unloaded",
+      !made.has(el.dataset.id) &&
+        !model.tabs.find((t) => t.id === el.dataset.id)?.direct,
+    );
 }
 
 // Tabs in the order they appear in the bar.
@@ -1118,6 +1148,13 @@ async function setMobile(id, mobile) {
   await browser.storage.local.set({ tabs });
 }
 
+async function setDirect(id, direct) {
+  const tabs = model.tabs.map((t) => (t.id === id ? { ...t, direct } : t));
+  await browser.storage.local.set({ tabs });
+  const t = tabs.find((x) => x.id === id);
+  if (direct && id === model.activeId && t) goDirect(t.url);
+}
+
 async function setKind(id, kind) {
   const tabs = model.tabs.map((t) =>
     t.id === id
@@ -1169,8 +1206,9 @@ function resolveInput(raw, base) {
 }
 
 async function navigateTo(raw) {
+  const active = model.tabs.find((t) => t.id === model.activeId);
   const f = made.get(model.activeId);
-  if (!f) return;
+  if (!f && !active?.direct) return;
   let u;
   try {
     u = resolveInput(raw, currentUrl() || HOME);
@@ -1178,6 +1216,7 @@ async function navigateTo(raw) {
     toast("That doesn't look like a valid web address.");
     return;
   }
+  if (!f) return goDirect(u.href); // full-page tab
   const granted = await hasHostAccess(u);
   goFrame(f, u.href, false);
   if (!granted)
@@ -1400,6 +1439,10 @@ function openMenu(e, id) {
       t.mobile ? "Use desktop site" : "Use mobile site",
       () => setMobile(id, !t.mobile),
     ],
+    [
+      t.direct ? "Show in a frame" : "Open as full page",
+      () => setDirect(id, !t.direct),
+    ],
     null,
     ["Pin tab", () => setKind(id, "pinned"), t.kind === "pinned"],
     [
@@ -1488,6 +1531,7 @@ function openPanel(id, folderId) {
   urlIn.value = t ? t.url : "";
   form.elements.kind.value = t ? t.kind : "regular";
   mobileIn.checked = t ? t.mobile === true : false;
+  directIn.checked = t ? t.direct === true : false;
   $("save").textContent = t ? "Save" : "Add";
   form.hidden = false;
   const first = t ? nameIn : urlIn;
@@ -1526,6 +1570,7 @@ form.onsubmit = async (e) => {
     url: u.href,
     kind: form.elements.kind.value,
     mobile: mobileIn.checked,
+    direct: directIn.checked,
   };
   const tabs = model.tabs.slice();
   const patch = {};
@@ -1549,6 +1594,7 @@ form.onsubmit = async (e) => {
   }
   closePanel();
   await browser.storage.local.set({ tabs, active: id, ...patch });
+  if (entry.direct) return goDirect(entry.url);
 
   if (!granted) {
     toast(
