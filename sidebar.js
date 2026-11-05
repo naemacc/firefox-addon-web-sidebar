@@ -34,6 +34,34 @@ const SEARCH = {
 };
 const HOME = "https://duckduckgo.com/";
 const KINDS = ["essential", "pinned", "regular"];
+// Letters shown inside a folder icon. Three is unreadable at tab-icon size, so two is the limit.
+const FOLDER_TEXT_MAX = 2;
+// Preset glyphs for the inside of a folder icon (16x16 stroke paths).
+const GLYPHS = {
+  star: "M8 2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.2l-3.6 1.9.7-4L2.2 6.3l4-.6z",
+  heart: "M8 13.5S2.5 10 2.5 6.2A2.9 2.9 0 0 1 8 5a2.9 2.9 0 0 1 5.5 1.2C13.5 10 8 13.5 8 13.5z",
+  bolt: "M9 2 4 9h3.5L7 14l5-7H8.5z",
+  code: "M6 5 3 8l3 3M10 5l3 3-3 3",
+  chat: "M3 4h10v7H8l-3 2.5V11H3z",
+  mail: "M2.5 4h11v8h-11zM2.5 4.5 8 9l5.5-4.5",
+  music:
+    "M6 12V4l6-1.5V10M6 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM12 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z",
+  play: "M5 3.5v9l7.5-4.5z",
+  cart: "M2 3h2l1.5 7h6l1.5-5H5M6.5 13h.01M11 13h.01",
+  book: "M2.5 3.5H7a1 1 0 0 1 1 1v8a1 1 0 0 0-1-1H2.5zM13.5 3.5H9a1 1 0 0 0-1 1v8a1 1 0 0 1 1-1h4.5z",
+  game: "M4.5 5.5h7A2.5 2.5 0 0 1 14 8.2l-.4 2.3a1.5 1.5 0 0 1-2.6.6L10 10H6l-1 1.1a1.5 1.5 0 0 1-2.6-.6L2 8.2a2.5 2.5 0 0 1 2.5-2.7zM5 7v2M4 8h2",
+  globe:
+    "M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM2.5 8h11M8 2.5c2 1.8 2 9.2 0 11M8 2.5c-2 1.8-2 9.2 0 11",
+  work: "M2.5 5.5h11v7h-11zM6 5.5v-2h4v2M2.5 9h11",
+  home: "M2.5 8 8 3l5.5 5M4 7.2V13h8V7.2",
+};
+// Solid, softly rounded folder (20x16). The open state is the same silhouette dimmed behind a
+// slanted front flap. Letters or a glyph are drawn on the front in the bar's dark colour.
+const FOLDER_BACK =
+  "M3.5 .5H7.4C7.9 .5 8.3 .7 8.6 1.1L9.5 2.2C9.8 2.6 10.2 2.8 10.7 2.8H16.5A3 3 0 0 1 19.5 5.8V12.5A3 3 0 0 1 16.5 15.5H3.5A3 3 0 0 1 .5 12.5V3.5A3 3 0 0 1 3.5 .5Z";
+const FOLDER_FRONT = "M4.6 6.4H19.2L17.1 15.5H.9Z";
+const FOLDER_CLOSED = `<path d="${FOLDER_BACK}"/>`;
+const FOLDER_OPEN = `<path class="back" d="${FOLDER_BACK}"/><path class="front" d="${FOLDER_FRONT}"/>`;
 // icon = favicon/glyph size, tab = tab height, tile = width of the icon column (compact tile),
 // tabH = tab height in the horizontal layout, fs = label font size. "medium" follows Zen's own sidebar.
 const SIZES = {
@@ -66,13 +94,24 @@ const groups = {
   regular: $("regular"),
 };
 
-const made = new Map(); // tab id -> iframe, kept alive between switches
+const folderForm = $("folderForm");
+const fName = $("fName");
+const fText = $("fText");
+const fGlyphs = $("fGlyphs");
+const fPreview = $("fPreview");
+
+const made = new Map(); // tab id -> iframe, kept alive between switches. No entry = unloaded tab
 const navInfo = new Map(); // tab id -> history info reported by frame-nav.js
 const iconCache = new Map(); // page url -> icon url
 
-let model = { tabs: [], activeId: null, ...DEFAULTS };
+let model = { tabs: [], folders: [], activeId: null, ...DEFAULTS };
 let editingId = null; // tab being edited, or null when adding
 let dragId = null;
+let dragFolderId = null;
+let pendingFolder = null; // folder a tab being added should go into
+let folderEditing = null; // folder being edited, or null when adding
+let folderWithTab = null; // tab that should move into the folder being created
+let fGlyph = null; // glyph chosen in the folder form
 const hoverState = { rail: false, url: false }; // which bars are currently hovered
 const hoverTimers = {};
 let hist = {}; // tab id -> pages visited in that tab, newest first: [{ url, title }]
@@ -118,9 +157,34 @@ toastEl.onclick = () => (toastEl.hidden = true);
 const normAutohide = (v) =>
   v === true ? "tabs" : ["urlbar", "tabs", "both"].includes(v) ? v : "none";
 
+function normIcon(i) {
+  if (i && i.type === "glyph" && GLYPHS[i.name])
+    return { type: "glyph", name: i.name };
+  if (i && i.type === "text") {
+    const text = [...String(i.text || "").trim()]
+      .slice(0, FOLDER_TEXT_MAX)
+      .join("");
+    if (text) return { type: "text", text };
+  }
+  return { type: "auto" }; // initials taken from the folder's name
+}
+
+function normFolders(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((f) => f && typeof f.id === "string")
+    .map((f) => ({
+      id: f.id,
+      name: String(f.name || "").slice(0, 30),
+      icon: normIcon(f.icon),
+      collapsed: f.collapsed === true,
+    }));
+}
+
 async function load() {
   const s = await browser.storage.local.get([
     "tabs",
+    "folders",
     "active",
     "last",
     "placement",
@@ -139,13 +203,20 @@ async function load() {
     "urlbar",
     "search",
   ]);
+  const folders = normFolders(s.folders);
+  const folderIds = new Set(folders.map((f) => f.id));
   const tabs = (Array.isArray(s.tabs) ? s.tabs : structuredClone(SEED)).map(
-    (t) => ({
-      ...t,
-      name: t.name || "",
-      kind: KINDS.includes(t.kind) ? t.kind : "regular",
-      mobile: t.mobile === true,
-    }),
+    (t) => {
+      const kind = KINDS.includes(t.kind) ? t.kind : "regular";
+      return {
+        ...t,
+        name: t.name || "",
+        kind,
+        mobile: t.mobile === true,
+        // only regular tabs live in folders
+        folder: kind === "regular" && folderIds.has(t.folder) ? t.folder : null,
+      };
+    },
   );
   let activeId = s.active;
   if (!tabs.some((t) => t.id === activeId)) {
@@ -156,6 +227,7 @@ async function load() {
     allowed.includes(s[key]) ? s[key] : DEFAULTS[key];
   model = {
     tabs,
+    folders,
     activeId,
     placement: pick("placement", ["left", "right"]),
     display: pick("display", ["both", "icon", "name"]),
@@ -543,12 +615,15 @@ async function render() {
   const by = { essential: [], pinned: [], regular: [] };
   for (const t of tabs) by[t.kind].push(t);
   for (const k of KINDS) {
-    groups[k].replaceChildren(...by[k].map(makeTab));
+    groups[k].replaceChildren(
+      ...(k === "regular" ? makeRegular(by.regular) : by[k].map(makeTab)),
+    );
     if (k !== "regular") groups[k].hidden = by[k].length === 0;
   }
   $("sepA").hidden = !(by.essential.length && by.pinned.length);
   $("sep").hidden =
-    !(by.essential.length || by.pinned.length) || !by.regular.length;
+    !(by.essential.length || by.pinned.length) ||
+    !(by.regular.length || model.folders.length);
 
   for (const [id, f] of made) {
     if (!tabs.some((t) => t.id === id)) {
@@ -562,6 +637,7 @@ async function render() {
   pruneHistory(tabs);
   const active = tabs.find((t) => t.id === activeId);
   if (active) show(active);
+  markLoaded();
   updateNav();
   updateAddr();
   rail
@@ -663,6 +739,137 @@ function xIcon() {
   path.setAttribute("d", "M4 4l8 8M12 4l-8 8");
   svg.append(path);
   return svg;
+}
+
+// Folders sit above the loose tabs, in their own order; tabs inside a folder keep the order they
+// have in the tab list.
+function makeRegular(list) {
+  const nodes = model.folders.map((f) =>
+    makeFolder(
+      f,
+      list.filter((t) => t.folder === f.id),
+    ),
+  );
+  for (const t of list) if (!t.folder) nodes.push(makeTab(t));
+  return nodes;
+}
+
+function initials(name) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const chars =
+    words.length > 1
+      ? words.slice(0, FOLDER_TEXT_MAX).map((w) => [...w][0])
+      : [...(words[0] || "")].slice(0, FOLDER_TEXT_MAX);
+  return chars.join("").toUpperCase();
+}
+
+// A solid folder with either letters or a preset glyph on it.
+function folderIcon(icon, name, open) {
+  const el = document.createElement("span");
+  el.className = "icon ficon" + (open ? " open" : "");
+  el.innerHTML = `<svg class="shape" viewBox="0 0 20 16" aria-hidden="true">${open ? FOLDER_OPEN : FOLDER_CLOSED}</svg>`;
+  const inner = document.createElement("span");
+  inner.className = "fin";
+  if (icon.type === "glyph" && GLYPHS[icon.name]) {
+    inner.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${GLYPHS[icon.name]}"/></svg>`;
+  } else {
+    const text = icon.type === "text" ? icon.text : initials(name);
+    inner.textContent = text;
+    inner.dataset.n = String(text.length);
+  }
+  el.append(inner);
+  return el;
+}
+
+const folderLabel = (f) => f.name.trim() || "Folder";
+
+function makeFolder(f, kids) {
+  const label = folderLabel(f);
+  const wrap = document.createElement("div");
+  wrap.className = "folder" + (f.collapsed ? " collapsed" : "");
+  wrap.dataset.folderWrap = f.id;
+
+  const head = document.createElement("div");
+  head.className = "tab fhead";
+  head.dataset.folder = f.id;
+  head.setAttribute("role", "button");
+  head.setAttribute("aria-expanded", String(!f.collapsed));
+  head.tabIndex = 0;
+  head.draggable = true;
+  head.title = `${label}\n${kids.length} ${kids.length === 1 ? "tab" : "tabs"}\nClick to ${f.collapsed ? "expand" : "collapse"}, right-click for more`;
+
+  const text = document.createElement("span");
+  text.className = "label";
+  text.textContent = label;
+  const chev = document.createElement("span");
+  chev.className = "chev";
+  chev.innerHTML = '<svg viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>';
+  head.append(folderIcon(f.icon, f.name, !f.collapsed), text, chev);
+  wrap.append(head);
+
+  // A collapsed folder still shows the tab you are on, like Firefox and Zen do.
+  const shown = f.collapsed ? kids.filter((t) => t.id === model.activeId) : kids;
+  if (shown.length) {
+    const box = document.createElement("div");
+    box.className = "fkids";
+    box.append(...shown.map(makeTab));
+    wrap.append(box);
+  }
+
+  head.onclick = () => toggleFolder(f.id);
+  head.oncontextmenu = (e) => {
+    e.preventDefault();
+    openFolderMenu(e, f.id);
+  };
+  head.onkeydown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleFolder(f.id);
+    }
+  };
+
+  const isAfter = (e) => {
+    const r = head.getBoundingClientRect();
+    return model.layout === "horizontal"
+      ? e.clientX > r.left + r.width / 2
+      : e.clientY > r.top + r.height / 2;
+  };
+  head.ondragstart = (e) => {
+    dragFolderId = f.id;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", f.id);
+    head.classList.add("dragging");
+  };
+  head.ondragend = () => {
+    dragFolderId = null;
+    head.classList.remove("dragging");
+    clearDropMarks();
+  };
+  head.ondragover = (e) => {
+    if (dragFolderId && dragFolderId !== f.id) {
+      e.preventDefault(); // reorder folders
+      clearDropMarks();
+      head.classList.add(isAfter(e) ? "drop-after" : "drop-before");
+    } else if (
+      dragId &&
+      model.tabs.find((x) => x.id === dragId)?.kind === "regular"
+    ) {
+      e.preventDefault(); // drop a tab into the folder
+      clearDropMarks();
+      head.classList.add("drop-into");
+    }
+  };
+  head.ondrop = async (e) => {
+    e.preventDefault();
+    const folderFrom = dragFolderId;
+    const tabFrom = dragId;
+    dragFolderId = dragId = null;
+    const after = isAfter(e);
+    clearDropMarks();
+    if (folderFrom) await moveFolder(folderFrom, f.id, after);
+    else if (tabFrom) await moveTabIntoFolder(tabFrom, f.id);
+  };
+  return wrap;
 }
 
 function makeTab(t) {
@@ -774,8 +981,10 @@ async function select(id) {
 }
 
 function clearDropMarks() {
-  for (const el of rail.querySelectorAll(".drop-before, .drop-after"))
-    el.classList.remove("drop-before", "drop-after");
+  for (const el of rail.querySelectorAll(
+    ".drop-before, .drop-after, .drop-into",
+  ))
+    el.classList.remove("drop-before", "drop-after", "drop-into");
 }
 
 async function moveTab(fromId, toId, after) {
@@ -785,8 +994,112 @@ async function moveTab(fromId, toId, after) {
   const [item] = tabs.splice(fi, 1);
   const ti = tabs.findIndex((t) => t.id === toId);
   if (ti < 0) return;
-  tabs.splice(ti + (after ? 1 : 0), 0, item);
+  // dropping next to a tab puts the dragged tab in that tab's folder (or takes it out of one)
+  tabs.splice(ti + (after ? 1 : 0), 0, { ...item, folder: tabs[ti].folder });
   await browser.storage.local.set({ tabs });
+}
+
+async function moveTabIntoFolder(id, folderId) {
+  const tabs = model.tabs.slice();
+  const fi = tabs.findIndex((t) => t.id === id);
+  if (fi < 0 || tabs[fi].kind !== "regular") return;
+  const [item] = tabs.splice(fi, 1);
+  let last = -1;
+  tabs.forEach((t, i) => {
+    if (t.folder === folderId) last = i;
+  });
+  tabs.splice(last < 0 ? tabs.length : last + 1, 0, {
+    ...item,
+    folder: folderId,
+  });
+  // open the folder so the tab is seen arriving
+  const folders = model.folders.map((f) =>
+    f.id === folderId ? { ...f, collapsed: false } : f,
+  );
+  await browser.storage.local.set({ tabs, folders });
+}
+
+async function removeFromFolder(id) {
+  const tabs = model.tabs.map((t) => (t.id === id ? { ...t, folder: null } : t));
+  await browser.storage.local.set({ tabs });
+}
+
+async function moveFolder(fromId, toId, after) {
+  const folders = model.folders.slice();
+  const fi = folders.findIndex((f) => f.id === fromId);
+  if (fi < 0) return;
+  const [item] = folders.splice(fi, 1);
+  const ti = folders.findIndex((f) => f.id === toId);
+  if (ti < 0) return;
+  folders.splice(ti + (after ? 1 : 0), 0, item);
+  await browser.storage.local.set({ folders });
+}
+
+async function toggleFolder(id) {
+  const folders = model.folders.map((f) =>
+    f.id === id ? { ...f, collapsed: !f.collapsed } : f,
+  );
+  await browser.storage.local.set({ folders });
+}
+
+// keepTabs: the tabs stay, loose, where the folder was. Otherwise they are closed with it.
+async function deleteFolder(id, keepTabs) {
+  const folders = model.folders.filter((f) => f.id !== id);
+  let tabs = model.tabs;
+  let active = model.activeId;
+  if (keepTabs) {
+    tabs = tabs.map((t) => (t.folder === id ? { ...t, folder: null } : t));
+  } else {
+    const doomed = new Set(tabs.filter((t) => t.folder === id).map((t) => t.id));
+    tabs = tabs.filter((t) => !doomed.has(t.id));
+    if (doomed.has(active)) active = tabs[0]?.id ?? null;
+  }
+  closePanel();
+  closeFolderPanel();
+  await browser.storage.local.set({ folders, tabs, active });
+}
+
+/* ---------- loaded / unloaded tabs ---------- */
+
+// A tab only has a page (an iframe) once it has been opened. Tabs without one are shown greyed out.
+function markLoaded() {
+  for (const el of rail.querySelectorAll(".tab[data-id]"))
+    el.classList.toggle("unloaded", !made.has(el.dataset.id));
+}
+
+// Tabs in the order they appear in the bar.
+function orderedTabs() {
+  const regular = model.tabs.filter((t) => t.kind === "regular");
+  return [
+    ...model.tabs.filter((t) => t.kind === "essential"),
+    ...model.tabs.filter((t) => t.kind === "pinned"),
+    ...model.folders.flatMap((f) => regular.filter((t) => t.folder === f.id)),
+    ...regular.filter((t) => !t.folder),
+  ];
+}
+
+// Where to go when the tab you are on is unloaded: the next loaded tab, else the previous one.
+function unloadNeighbour(id) {
+  const list = orderedTabs();
+  const i = list.findIndex((t) => t.id === id);
+  const loaded = (t) => t.id !== id && made.has(t.id);
+  return (
+    list.slice(i + 1).find(loaded) ||
+    list.slice(0, i).reverse().find(loaded) ||
+    null
+  );
+}
+
+async function unloadTab(id) {
+  const f = made.get(id);
+  if (!f) return;
+  const next = id === model.activeId ? unloadNeighbour(id) : null;
+  if (id === model.activeId && !next) return; // nowhere else to go
+  f.remove();
+  made.delete(id);
+  navInfo.delete(id);
+  if (next) await browser.storage.local.set({ active: next.id });
+  else markLoaded();
 }
 
 async function closeTab(id) {
@@ -806,7 +1119,11 @@ async function setMobile(id, mobile) {
 }
 
 async function setKind(id, kind) {
-  const tabs = model.tabs.map((t) => (t.id === id ? { ...t, kind } : t));
+  const tabs = model.tabs.map((t) =>
+    t.id === id
+      ? { ...t, kind, folder: kind === "regular" ? t.folder : null }
+      : t,
+  );
   await browser.storage.local.set({ tabs });
 }
 
@@ -861,18 +1178,27 @@ async function navigateTo(raw) {
     toast("That doesn't look like a valid web address.");
     return;
   }
-  // Same rule as the add-tab form: ask for the host first, while the keypress still counts as a gesture.
-  let granted = false;
-  try {
-    granted = await browser.permissions.request({
-      origins: [`${u.protocol}//${u.hostname}/*`],
-    });
-  } catch {}
+  const granted = await hasHostAccess(u);
   goFrame(f, u.href, false);
   if (!granted)
     toast(
       `Access to ${u.hostname} wasn't granted, so the page may refuse to load if it blocks embedding.`,
     );
+}
+
+// The manifest already grants access to every http/https site, so this normally just confirms it.
+// Only if that access was taken away (about:addons > Permissions) does it ask, and only then can it
+// come back false. Checking first also means no user gesture is needed in the common case.
+async function hasHostAccess(u) {
+  const origins = [`${u.protocol}//${u.hostname}/*`];
+  try {
+    if (await browser.permissions.contains({ origins })) return true;
+  } catch {}
+  try {
+    return await browser.permissions.request({ origins });
+  } catch {
+    return false;
+  }
 }
 
 function goTo(url) {
@@ -1037,28 +1363,7 @@ function closeMenu() {
   menu.hidden = true;
 }
 
-function openMenu(e, id) {
-  const t = model.tabs.find((x) => x.id === id);
-  if (!t) return;
-  const items = [
-    ["Edit…", () => openPanel(id)],
-    ["Reload", () => reloadTab(id)],
-    [
-      t.mobile ? "Use desktop site" : "Use mobile site",
-      () => setMobile(id, !t.mobile),
-    ],
-    null,
-    ["Pin tab", () => setKind(id, "pinned"), t.kind === "pinned"],
-    [
-      "Add to Essentials",
-      () => setKind(id, "essential"),
-      t.kind === "essential",
-    ],
-    ["Make regular", () => setKind(id, "regular"), t.kind === "regular"],
-  ];
-  // Close only appears for regular tabs.
-  if (t.kind === "regular") items.push(null, ["Close tab", () => closeTab(id)]);
-
+function showMenu(e, items) {
   menu.replaceChildren(
     ...items.map((it) => {
       if (!it) return document.createElement("hr");
@@ -1082,6 +1387,82 @@ function openMenu(e, id) {
     Math.max(4, Math.min(e.clientY, innerHeight - r.height - 4)) + "px";
 }
 
+function openMenu(e, id) {
+  const t = model.tabs.find((x) => x.id === id);
+  if (!t) return;
+  const canUnload =
+    made.has(id) && (id !== model.activeId || !!unloadNeighbour(id));
+  const items = [
+    ["Edit…", () => openPanel(id)],
+    ["Reload", () => reloadTab(id)],
+    ["Unload tab", () => unloadTab(id), !canUnload],
+    [
+      t.mobile ? "Use desktop site" : "Use mobile site",
+      () => setMobile(id, !t.mobile),
+    ],
+    null,
+    ["Pin tab", () => setKind(id, "pinned"), t.kind === "pinned"],
+    [
+      "Add to Essentials",
+      () => setKind(id, "essential"),
+      t.kind === "essential",
+    ],
+    ["Make regular", () => setKind(id, "regular"), t.kind === "regular"],
+  ];
+  // Folders and Close only apply to regular tabs.
+  if (t.kind === "regular") {
+    items.push(null);
+    if (t.folder)
+      items.push(["Remove from folder", () => removeFromFolder(id)]);
+    for (const f of model.folders)
+      if (f.id !== t.folder)
+        items.push([
+          `Move to ${folderLabel(f)}`,
+          () => moveTabIntoFolder(id, f.id),
+        ]);
+    items.push(["New folder with this tab…", () => openFolderPanel(null, id)]);
+    items.push(null, ["Close tab", () => closeTab(id)]);
+  }
+  showMenu(e, items);
+}
+
+function openFolderMenu(e, id) {
+  const f = model.folders.find((x) => x.id === id);
+  if (!f) return;
+  const kids = model.tabs.filter((t) => t.folder === id);
+  const loaded = kids.filter((t) => made.has(t.id) && t.id !== model.activeId);
+  showMenu(e, [
+    [f.collapsed ? "Expand folder" : "Collapse folder", () => toggleFolder(id)],
+    ["New tab in folder…", () => openPanel(null, id)],
+    ["Edit folder…", () => openFolderPanel(id)],
+    [
+      "Unload tabs in folder",
+      () => loaded.forEach((t) => unloadTab(t.id)),
+      !loaded.length,
+    ],
+    null,
+    [
+      kids.length ? "Ungroup (keep tabs)" : "Delete folder",
+      () => deleteFolder(id, true),
+    ],
+    [
+      "Delete folder and close tabs",
+      () => deleteFolder(id, false),
+      !kids.length,
+    ],
+  ]);
+}
+
+// Right-clicking empty space in the bar offers the "new" actions.
+rail.addEventListener("contextmenu", (e) => {
+  if (e.target.closest("[data-id], [data-folder], #foot")) return;
+  e.preventDefault();
+  showMenu(e, [
+    ["New tab", () => openPanel(null)],
+    ["New folder…", () => openFolderPanel(null)],
+  ]);
+});
+
 document.addEventListener("pointerdown", (e) => {
   if (!menu.hidden && !menu.contains(e.target)) closeMenu();
   if (
@@ -1095,9 +1476,11 @@ window.addEventListener("blur", closeMenu);
 
 /* ---------- add / edit panel ---------- */
 
-function openPanel(id) {
+function openPanel(id, folderId) {
   closeMenu();
+  closeFolderPanel();
   editingId = id;
+  pendingFolder = id ? null : folderId || null;
   const t = id ? model.tabs.find((x) => x.id === id) : null;
   if (id && !t) return;
   formTitle.textContent = t ? "Edit tab" : "Add tab";
@@ -1115,6 +1498,7 @@ function openPanel(id) {
 function closePanel() {
   form.hidden = true;
   editingId = null;
+  pendingFolder = null;
 }
 
 form.onsubmit = async (e) => {
@@ -1132,17 +1516,9 @@ form.onsubmit = async (e) => {
     return;
   }
 
-  // Ask for access to this host. Keep this as the first await in the handler so
-  // the click still counts as a user gesture. Already-granted hosts return true
-  // without a prompt, and the grant covers every port on that host.
-  let granted = false;
-  try {
-    granted = await browser.permissions.request({
-      origins: [`${u.protocol}//${u.hostname}/*`],
-    });
-  } catch {
-    granted = false;
-  }
+  // Normally already granted by the manifest; see hasHostAccess.
+  const granted = await hasHostAccess(u);
+  const into = pendingFolder;
 
   await load();
   const entry = {
@@ -1152,23 +1528,122 @@ form.onsubmit = async (e) => {
     mobile: mobileIn.checked,
   };
   const tabs = model.tabs.slice();
+  const patch = {};
   let id;
   const at = editingId ? tabs.findIndex((t) => t.id === editingId) : -1;
   if (at >= 0) {
     tabs[at] = { ...tabs[at], ...entry };
+    if (entry.kind !== "regular") tabs[at].folder = null;
     id = tabs[at].id;
   } else {
     id = crypto.randomUUID();
-    tabs.push({ id, ...entry });
+    const folder =
+      entry.kind === "regular" && model.folders.some((f) => f.id === into)
+        ? into
+        : null;
+    tabs.push({ id, ...entry, folder });
+    if (folder)
+      patch.folders = model.folders.map((f) =>
+        f.id === folder ? { ...f, collapsed: false } : f,
+      );
   }
   closePanel();
-  await browser.storage.local.set({ tabs, active: id });
+  await browser.storage.local.set({ tabs, active: id, ...patch });
 
   if (!granted) {
     toast(
       `Access to ${u.hostname} wasn't granted, so the page may refuse to load if it blocks embedding. Edit the tab to try again.`,
     );
   }
+};
+
+/* ---------- folder panel ---------- */
+
+for (const name of Object.keys(GLYPHS)) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "g";
+  b.dataset.name = name;
+  b.title = name;
+  b.setAttribute("role", "radio");
+  b.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${GLYPHS[name]}"/></svg>`;
+  b.onclick = () => {
+    fGlyph = name;
+    syncFolderForm();
+  };
+  fGlyphs.append(b);
+}
+fText.maxLength = FOLDER_TEXT_MAX;
+
+function folderDraft() {
+  if (folderForm.elements.ficon.value === "glyph")
+    return { type: "glyph", name: fGlyph || Object.keys(GLYPHS)[0] };
+  return normIcon({ type: "text", text: fText.value });
+}
+
+function syncFolderForm() {
+  const glyph = folderForm.elements.ficon.value === "glyph";
+  fText.hidden = glyph;
+  fGlyphs.hidden = !glyph;
+  const chosen = fGlyph || Object.keys(GLYPHS)[0];
+  for (const b of fGlyphs.children) {
+    const on = b.dataset.name === chosen;
+    b.classList.toggle("sel", on);
+    b.setAttribute("aria-checked", String(on));
+  }
+  fPreview.replaceChildren(folderIcon(folderDraft(), fName.value, true));
+}
+
+function openFolderPanel(id, withTab) {
+  closeMenu();
+  closePanel();
+  const f = id ? model.folders.find((x) => x.id === id) : null;
+  if (id && !f) return;
+  folderEditing = id;
+  folderWithTab = withTab || null;
+  $("folderTitle").textContent = f ? "Edit folder" : "New folder";
+  fName.value = f ? f.name : "New folder";
+  const icon = f ? f.icon : { type: "auto" };
+  folderForm.elements.ficon.value = icon.type === "glyph" ? "glyph" : "text";
+  fText.value = icon.type === "text" ? icon.text : "";
+  fGlyph = icon.type === "glyph" ? icon.name : null;
+  $("fSave").textContent = f ? "Save" : "Create";
+  folderForm.hidden = false;
+  syncFolderForm();
+  fName.focus();
+  fName.select();
+}
+
+function closeFolderPanel() {
+  folderForm.hidden = true;
+  folderEditing = null;
+  folderWithTab = null;
+}
+
+folderForm.addEventListener("input", syncFolderForm);
+folderForm.addEventListener("change", syncFolderForm);
+$("fCancel").onclick = closeFolderPanel;
+
+folderForm.onsubmit = async (e) => {
+  e.preventDefault();
+  await load();
+  const name = fName.value.trim();
+  const icon = folderDraft();
+  let folders = model.folders.slice();
+  let id = folderEditing;
+  if (id && folders.some((f) => f.id === id)) {
+    folders = folders.map((f) => (f.id === id ? { ...f, name, icon } : f));
+  } else {
+    id = crypto.randomUUID();
+    folders.push({ id, name, icon, collapsed: false });
+  }
+  const patch = { folders };
+  if (folderWithTab)
+    patch.tabs = model.tabs.map((t) =>
+      t.id === folderWithTab && t.kind === "regular" ? { ...t, folder: id } : t,
+    );
+  closeFolderPanel();
+  await browser.storage.local.set(patch);
 };
 
 groups.regular.addEventListener(
@@ -1183,12 +1658,14 @@ groups.regular.addEventListener(
 );
 
 $("add").onclick = () => openPanel(null);
+$("addfolder").onclick = () => openFolderPanel(null);
 $("cancel").onclick = closePanel;
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!hmenu.hidden) closeHistory();
   else if (!menu.hidden) closeMenu();
   else if (!form.hidden) closePanel();
+  else if (!folderForm.hidden) closeFolderPanel();
 });
 
 // Start from a clean slate in the background script, then draw.

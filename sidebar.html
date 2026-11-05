@@ -287,6 +287,164 @@
         white-space: nowrap;
       }
 
+      /* ---------- tabs that are not loaded yet ---------- */
+      .icon,
+      .label {
+        transition: opacity 0.12s ease;
+      }
+      .tab.unloaded .icon {
+        opacity: 0.5;
+        filter: grayscale(1);
+      }
+      .tab.unloaded .label {
+        opacity: 0.55;
+      }
+      .tab.unloaded:hover .icon {
+        opacity: 0.85;
+      }
+      .tab.unloaded:hover .label {
+        opacity: 0.9;
+      }
+
+      /* ---------- folders ---------- */
+      .folder {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: none;
+      }
+      .fkids {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-left: calc(var(--tile-w) / 2 - 1px);
+        border-left: 1.5px solid var(--line);
+      }
+      .fkids .tab {
+        padding-left: 8px;
+      }
+      .fhead {
+        --fw: calc(var(--icon) * 1.5);
+        --fh: calc(var(--icon) * 1.2);
+        padding-left: calc((var(--tile-w) - var(--fw)) / 2);
+      }
+      .ficon {
+        position: relative;
+        display: block;
+        width: var(--fw, calc(var(--icon) * 1.5));
+        height: var(--fh, calc(var(--icon) * 1.2));
+      }
+      .ficon .shape {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        fill: currentColor;
+        stroke: currentColor;
+        stroke-width: 1;
+        stroke-linejoin: round;
+      }
+      .ficon .shape .back {
+        opacity: 0.5;
+      }
+      .ficon .shape .front {
+        stroke-width: 1.6;
+      }
+      /* what is drawn on the folder: letters or a glyph, cut out in the bar's dark colour */
+      .fin {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 26%;
+        height: 68%;
+        display: grid;
+        place-items: center;
+        color: var(--bg);
+        font-size: calc(var(--icon) * 0.6);
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        pointer-events: none;
+      }
+      .fin[data-n="2"] {
+        font-size: calc(var(--icon) * 0.48);
+      }
+      .fin[data-n="3"] {
+        font-size: calc(var(--icon) * 0.36);
+      }
+      .ficon.open .fin {
+        left: 8%;
+        top: 42%;
+        height: 52%;
+      }
+      .ficon.open .fin[data-n="2"] {
+        font-size: calc(var(--icon) * 0.44);
+      }
+      .fin svg {
+        width: calc(var(--icon) * 0.6);
+        height: calc(var(--icon) * 0.6);
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .ficon.open .fin svg {
+        width: calc(var(--icon) * 0.5);
+        height: calc(var(--icon) * 0.5);
+      }
+      .chev {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 14px;
+        height: 14px;
+        opacity: 0.7;
+        transition: transform 0.12s ease;
+      }
+      .chev svg {
+        width: 12px;
+        height: 12px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .folder:not(.collapsed) .chev {
+        transform: rotate(90deg);
+      }
+      #rail.collapsed .chev,
+      #app[data-display="icon"] .chev,
+      #app[data-layout="horizontal"] .chev {
+        display: none;
+      }
+      .tab.drop-into {
+        background: color-mix(in srgb, var(--accent) 22%, transparent);
+        box-shadow: inset 0 0 0 1.5px var(--accent);
+      }
+      /* compact bar: no indent, a soft backdrop groups the folder's tabs instead */
+      #rail.collapsed .fkids {
+        margin-left: 0;
+        padding: 2px 0;
+        border-left: 0;
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--text) 6%, transparent);
+      }
+      /* horizontal strip: the folder is a chip followed by its tabs */
+      #app[data-layout="horizontal"] .folder {
+        flex-direction: row;
+        align-items: center;
+      }
+      #app[data-layout="horizontal"] .fkids {
+        flex-direction: row;
+        margin: 0 0 0 2px;
+        padding-left: 2px;
+      }
+      #app[data-layout="horizontal"] .fkids .tab {
+        padding-left: calc((var(--tile-w) - var(--icon)) / 2);
+      }
+
       /* close button: regular tabs only, and only while hovering that tab */
       .tab .x {
         appearance: none;
@@ -426,6 +584,25 @@
       }
 
       /* new tab row + footer */
+      #addrow {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex: none;
+      }
+      #addrow #add {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+      }
+      #addfolder {
+        width: var(--btn);
+        height: var(--tab-h);
+      }
+      #rail.collapsed #addfolder,
+      #app[data-layout="horizontal"] #addfolder {
+        display: none;
+      }
       #add {
         appearance: none;
         width: 100%;
@@ -812,7 +989,7 @@
       }
 
       /* ---------- add / edit popover ---------- */
-      #form {
+      :is(#form, #folderForm) {
         position: absolute;
         z-index: 30;
         top: 10px;
@@ -827,11 +1004,11 @@
         background: var(--surface);
         box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
       }
-      #formTitle {
+      :is(#formTitle, #folderTitle) {
         font-weight: 600;
       }
-      #form input[type="text"],
-      #form input:not([type]) {
+      :is(#form, #folderForm) input[type="text"],
+      :is(#form, #folderForm) input:not([type]) {
         padding: 6px 8px;
         border: 1px solid #52525e;
         border-radius: 6px;
@@ -839,7 +1016,7 @@
         color: var(--text);
         font: inherit;
       }
-      #form input:focus {
+      :is(#form, #folderForm) input:focus {
         outline: none;
         border-color: var(--accent);
       }
@@ -920,12 +1097,12 @@
         color: var(--muted);
         font-size: 11px;
       }
-      #form .row {
+      :is(#form, #folderForm) .row {
         display: flex;
         justify-content: flex-end;
         gap: 6px;
       }
-      #form .row button {
+      :is(#form, #folderForm) .row button {
         padding: 5px 14px;
         border: 1px solid #52525e;
         border-radius: 6px;
@@ -933,15 +1110,70 @@
         color: var(--text);
         cursor: pointer;
       }
-      #form .row button:hover {
+      :is(#form, #folderForm) .row button:hover {
         background: var(--active);
       }
-      #form .row button[type="submit"] {
+      :is(#form, #folderForm) .row button[type="submit"] {
         border-color: #3b6bff;
         background: #3b6bff;
       }
-      #form .row button[type="submit"]:hover {
+      :is(#form, #folderForm) .row button[type="submit"]:hover {
         background: #5a82ff;
+      }
+
+      .frow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .frow input {
+        flex: 1;
+        min-width: 0;
+      }
+      #fPreview {
+        --icon: 20px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .glyphs {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+      }
+      .glyphs .g {
+        appearance: none;
+        display: grid;
+        place-items: center;
+        aspect-ratio: 1;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .glyphs .g:hover {
+        color: var(--text);
+        background: var(--active);
+      }
+      .glyphs .g.sel {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+      .glyphs .g svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
 
       /* ---------- context menu + toast ---------- */
@@ -949,6 +1181,7 @@
         position: fixed;
         z-index: 50;
         min-width: 160px;
+        max-width: calc(100vw - 8px);
         padding: 4px;
         border: 1px solid var(--line);
         border-radius: 8px;
@@ -965,6 +1198,9 @@
         background: none;
         color: var(--text);
         text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         cursor: pointer;
       }
       #menu button:hover,
@@ -1052,12 +1288,22 @@
             <div class="sep" id="sep" hidden></div>
             <div id="regular" role="tablist"></div>
 
-            <button class="tab newtab" id="add" title="Add tab">
-              <span class="plus">
-                <svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" /></svg>
-              </span>
-              <span class="label">New tab</span>
-            </button>
+            <div id="addrow">
+              <button class="tab newtab" id="add" title="Add tab">
+                <span class="plus">
+                  <svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" /></svg>
+                </span>
+                <span class="label">New tab</span>
+              </button>
+              <button class="btn" id="addfolder" title="New folder">
+                <svg viewBox="0 0 16 16">
+                  <path
+                    d="M2 4.5A1.2 1.2 0 0 1 3.2 3.3h2.6l1.3 1.5h5.7A1.2 1.2 0 0 1 14 6v5.8a1.2 1.2 0 0 1-1.2 1.2H3.2A1.2 1.2 0 0 1 2 11.8z"
+                  />
+                  <path d="M8 7v3.4M6.3 8.7h3.4" />
+                </svg>
+              </button>
+            </div>
 
             <!-- non-tab controls; DOM order is settings, toggle, back, forward, reload
                (left to right when expanded, bottom to top when compact) -->
@@ -1138,6 +1384,42 @@
             <div class="row">
               <button type="button" id="cancel">Cancel</button>
               <button type="submit" id="save">Save</button>
+            </div>
+          </form>
+
+          <form id="folderForm" hidden autocomplete="off">
+            <div id="folderTitle"></div>
+            <div class="frow">
+              <span id="fPreview" aria-hidden="true"></span>
+              <input id="fName" placeholder="Folder name" maxlength="30" />
+            </div>
+            <div class="seg" role="radiogroup" aria-label="Folder icon">
+              <label class="seg-opt"
+                ><input type="radio" name="ficon" value="text" checked /><span
+                  >Letters</span
+                ></label
+              >
+              <label class="seg-opt"
+                ><input type="radio" name="ficon" value="glyph" /><span
+                  >Icon</span
+                ></label
+              >
+            </div>
+            <input
+              id="fText"
+              placeholder="Auto from the name"
+              spellcheck="false"
+            />
+            <div
+              id="fGlyphs"
+              class="glyphs"
+              role="radiogroup"
+              aria-label="Icon"
+              hidden
+            ></div>
+            <div class="row">
+              <button type="button" id="fCancel">Cancel</button>
+              <button type="submit" id="fSave">Create</button>
             </div>
           </form>
 
