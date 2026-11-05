@@ -39,7 +39,8 @@ const FOLDER_TEXT_MAX = 2;
 // Preset glyphs for the inside of a folder icon (16x16 stroke paths).
 const GLYPHS = {
   star: "M8 2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.2l-3.6 1.9.7-4L2.2 6.3l4-.6z",
-  heart: "M8 13.5S2.5 10 2.5 6.2A2.9 2.9 0 0 1 8 5a2.9 2.9 0 0 1 5.5 1.2C13.5 10 8 13.5 8 13.5z",
+  heart:
+    "M8 13.5S2.5 10 2.5 6.2A2.9 2.9 0 0 1 8 5a2.9 2.9 0 0 1 5.5 1.2C13.5 10 8 13.5 8 13.5z",
   bolt: "M9 2 4 9h3.5L7 14l5-7H8.5z",
   code: "M6 5 3 8l3 3M10 5l3 3-3 3",
   chat: "M3 4h10v7H8l-3 2.5V11H3z",
@@ -823,7 +824,9 @@ function makeFolder(f, kids) {
   wrap.append(head);
 
   // A collapsed folder still shows the tab you are on, like Firefox and Zen do.
-  const shown = f.collapsed ? kids.filter((t) => t.id === model.activeId) : kids;
+  const shown = f.collapsed
+    ? kids.filter((t) => t.id === model.activeId)
+    : kids;
   if (shown.length) {
     const box = document.createElement("div");
     box.className = "fkids";
@@ -1046,7 +1049,9 @@ async function moveTabIntoFolder(id, folderId) {
 }
 
 async function removeFromFolder(id) {
-  const tabs = model.tabs.map((t) => (t.id === id ? { ...t, folder: null } : t));
+  const tabs = model.tabs.map((t) =>
+    t.id === id ? { ...t, folder: null } : t,
+  );
   await browser.storage.local.set({ tabs });
 }
 
@@ -1076,7 +1081,9 @@ async function deleteFolder(id, keepTabs) {
   if (keepTabs) {
     tabs = tabs.map((t) => (t.folder === id ? { ...t, folder: null } : t));
   } else {
-    const doomed = new Set(tabs.filter((t) => t.folder === id).map((t) => t.id));
+    const doomed = new Set(
+      tabs.filter((t) => t.folder === id).map((t) => t.id),
+    );
     tabs = tabs.filter((t) => !doomed.has(t.id));
     if (doomed.has(active)) active = tabs[0]?.id ?? null;
   }

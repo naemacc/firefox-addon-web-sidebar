@@ -46,12 +46,12 @@ This project is a fork of my earlier Self-Hosted Sidebar. It keeps the tab bar a
 
 > Placeholders for now. Replace these files with real screenshots.
 
-| Horizontal tabs                                   | Vertical tabs                                   | Vertical, expanded on hover                          |
-| ------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| Horizontal tabs                                                 | Vertical tabs                                               | Vertical, expanded on hover                                     |
+| --------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
 | ![Horizontal tabs](preview-pictures/PLACEHOLDER-horizontal.png) | ![Vertical tabs](preview-pictures/PLACEHOLDER-vertical.png) | ![Expanded on hover](preview-pictures/PLACEHOLDER-expanded.png) |
 
-| Add or edit a tab, with the Mobile site switch   |
-| ------------------------------------------------ |
+| Add or edit a tab, with the Mobile site switch                        |
+| --------------------------------------------------------------------- |
 | ![Mobile site switch](preview-pictures/PLACEHOLDER-mobile-toggle.png) |
 
 ## Features
@@ -124,11 +124,11 @@ Settings that have no effect for your current combination are greyed out.
 
 ## Permissions
 
-| Permission                           | Why                                                                                                                                                                                                                                                                       |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`                            | Saves your tabs (including each tab's mobile setting), your settings and each tab's recently visited pages locally.                                                                                                                                                      |
-| `http://*/*`, `https://*/*`          | Granted at install, so any site you open in a tab works without a per-site prompt. It is used to load pages and their icons, and by the two features below. The extension only contacts addresses you add or type.                                                          |
-| `webRequest`, `webRequestBlocking`   | Used in two places, always for pages shown inside this extension's sidebar and never for normal tabs: removing `X-Frame-Options` and the CSP `frame-ancestors` directive so pages can load in the iframe, and sending a mobile `User-Agent` header for tabs set to Mobile site. |
+| Permission                         | Why                                                                                                                                                                                                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`                          | Saves your tabs (including each tab's mobile setting), your settings and each tab's recently visited pages locally.                                                                                                                                                             |
+| `http://*/*`, `https://*/*`        | Granted at install, so any site you open in a tab works without a per-site prompt. It is used to load pages and their icons, and by the two features below. The extension only contacts addresses you add or type.                                                              |
+| `webRequest`, `webRequestBlocking` | Used in two places, always for pages shown inside this extension's sidebar and never for normal tabs: removing `X-Frame-Options` and the CSP `frame-ancestors` directive so pages can load in the iframe, and sending a mobile `User-Agent` header for tabs set to Mobile site. |
 
 For frames in this sidebar, a small helper script (`frame-nav.js`) is also registered. It stays idle until the sidebar page greets it, reports the frame's address, title and back/forward state back to the sidebar, and makes no network requests. For tabs set to Mobile site it also makes `navigator.userAgent`, `appVersion` and `platform` match the mobile header, so sites that check in JavaScript agree with the request. No extra permission is needed for it, for the address bar, or for the copy-link button.
 
@@ -170,13 +170,13 @@ There is no build step.
 
 Files:
 
-| File                         | Purpose                                                                                      |
-| ---------------------------- | -------------------------------------------------------------------------------------------- |
-| `manifest.json`              | Extension manifest.                                                                          |
-| `background.js`              | Removes frame-blocking headers, sends the mobile User-Agent and registers the helper script. |
+| File                         | Purpose                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `manifest.json`              | Extension manifest.                                                                           |
+| `background.js`              | Removes frame-blocking headers, sends the mobile User-Agent and registers the helper script.  |
 | `frame-nav.js`               | Helper script that reports back/forward state and address, and aligns `navigator` for mobile. |
-| `sidebar.html`, `sidebar.js` | The sidebar: tab bar, address bar, history menu, add and edit form.                          |
-| `options.html`, `options.js` | The settings page.                                                                           |
+| `sidebar.html`, `sidebar.js` | The sidebar: tab bar, address bar, history menu, add and edit form.                           |
+| `options.html`, `options.js` | The settings page.                                                                            |
 
 Issues and pull requests are welcome. Please ensure you fork the repository and submit all Pull Requests to the `dev` branch, as this project follows a `dev` -> `main` workflow.
 
