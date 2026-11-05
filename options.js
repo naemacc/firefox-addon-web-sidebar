@@ -1,5 +1,5 @@
 const DEFAULTS = {
-  layout: "vertical",
+  layout: "horizontal",
   placement: "left",
   compact: false,
   autohide: "none",
