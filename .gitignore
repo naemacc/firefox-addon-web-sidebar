@@ -1,0 +1,7 @@
+/AMO-listing.md
+/preview-pictures/page
+*.zip
+*.xpi
+web-ext-artifacts/
+.DS_Store
+Thumbs.db
