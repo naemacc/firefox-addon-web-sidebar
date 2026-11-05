@@ -63,8 +63,10 @@ This project is a fork of my earlier Self-Hosted Sidebar. It keeps the tab bar a
 - **Mobile site, per tab.** A switch in the add and edit form (and "Use mobile site" in the right-click menu) makes a tab identify as Firefox on Android. Sites then serve their phone layout, which suits a narrow sidebar. The first tab, DuckDuckGo, starts with it on.
 - **Named tabs.** Give each site a name, or leave it blank to show the host or port.
 - **Tabs stay loaded.** Switching keeps each page's state, scroll position and connections.
+- **Unloaded tabs are greyed out.** Only tabs you have opened hold a page; the rest are dimmed until you click them. Right-click a loaded tab and choose **Unload tab** to free its page. Unloading the tab you are on moves you to the next loaded tab.
+- **Folders.** Group regular tabs into collapsible folders, like Firefox and Zen. A folder's icon holds up to two letters (taken from its name unless you type your own) or a preset icon. Drag tabs in and out, drag folders to reorder them, and right-click a folder to edit it, add a tab, unload its tabs, ungroup it or delete it. A collapsed folder still shows the tab you are on.
 - **Any address.** Websites, `localhost`, `127.0.0.1`, LAN IPs, `.local` names or your own domain, over http or https.
-- **Easy editing.** Double-click a tab to edit it, right-click for a menu (edit, reload, mobile or desktop site, pin, add to Essentials, close), and drag to reorder within a group. Close a regular tab with the x that appears on hover, or with a middle-click.
+- **Easy editing.** Double-click a tab to edit it, right-click for a menu (edit, reload, unload, mobile or desktop site, pin, add to Essentials, move to a folder, close), and drag to reorder within a group. Close a regular tab with the x that appears on hover, or with a middle-click.
 
 **Address bar**
 
@@ -93,6 +95,7 @@ This project is a fork of my earlier Self-Hosted Sidebar. It keeps the tab bar a
 1. Open the sidebar with `Alt+Shift+W`. It starts with a DuckDuckGo tab in mobile mode.
 2. Click **New tab**, enter an address or a search (for example `wikipedia.org` or `localhost:8080`), an optional name, a type (Regular, Pinned or Essential), and choose whether to use the **Mobile site**.
 3. To change a tab later, double-click it, or right-click it and choose **Edit…**, **Use mobile site** or **Use desktop site**.
+   To group tabs, click the folder button next to **New tab** (or right-click empty space in the tab bar), or right-click a tab and choose **New folder with this tab…**.
 4. Open the settings from the gear at the bottom of the tab bar, or from `about:addons`, to change layout, search engine, compact mode, auto-hide and appearance.
 
 To change the shortcut, open `about:addons`, click the gear icon and choose **Manage Extension Shortcuts**.
@@ -140,6 +143,7 @@ The extension collects no data and sends nothing to the developer or any third p
 - Back and forward, the live address and the page history rely on the helper script. If it cannot run on a page, the address bar shows the tab's saved address and back and forward stay hidden.
 - Redirects and routing that a page performs while it is loading do not count as history, so Back does not appear until you navigate within the page yourself.
 - For an https site with a self-signed certificate, open it once in a normal tab and accept the certificate.
+- Folders hold regular tabs only, not Pinned or Essential ones, and sit above your loose tabs. With horizontal tabs a folder is a chip followed by its tabs.
 - Firefox unloads sidebar content when the sidebar is closed or switched to another panel (such as History), so pages reload the next time you open it.
 
 ## Development
