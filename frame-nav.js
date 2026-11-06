@@ -25,16 +25,21 @@
           host.style.cssText =
             "all:initial;position:fixed;left:0;top:50%;z-index:2147483647";
           const root = host.attachShadow({ mode: "closed" });
-          root.innerHTML = `<style>
+          const style = document.createElement("style");
+          style.textContent = `
             button{all:unset;box-sizing:border-box;display:grid;place-items:center;
               width:10px;height:44px;margin-top:-22px;border-radius:0 8px 8px 0;
               background:#6c8cff;opacity:.35;cursor:pointer;color:#fff;
               font:600 15px system-ui,sans-serif;overflow:hidden;
               transition:width .12s ease,opacity .12s ease}
-            button:hover,button:focus-visible{width:26px;opacity:1}
-          </style><button title="Back to Web Sidebar tabs" aria-label="Back to Web Sidebar tabs">\u2039</button>`;
-          root.querySelector("button").onclick = () =>
+            button:hover,button:focus-visible{width:26px;opacity:1}`;
+          const btn = document.createElement("button");
+          btn.title = "Back to Web Sidebar tabs";
+          btn.setAttribute("aria-label", "Back to Web Sidebar tabs");
+          btn.textContent = "\u2039";
+          btn.onclick = () =>
             browser.runtime.sendMessage({ ssb: "home" }).catch(() => {});
+          root.append(style, btn);
           document.documentElement.appendChild(host);
         };
         if (document.documentElement) add();
