@@ -38,7 +38,7 @@ Great for:
 - Phone-sized versions of sites, which fit a narrow sidebar far better than the desktop layout
 - Anything you can reach at a web address
 
-> Many large sites forbid being embedded, and some break when framed (logins, cookies). Sites that refuse may not load.
+> Many large sites forbid being embedded, and some break when framed (logins, cookies). Sites that refuse may not load, and for ones that break you can try a **Full page** tab.
 
 This project is a fork of my earlier Self-Hosted Sidebar. It keeps the tab bar and address bar, and widens the scope from self-hosted apps to any website.
 
@@ -58,15 +58,16 @@ This project is a fork of my earlier Self-Hosted Sidebar. It keeps the tab bar a
 
 **Tabs**
 
-- **Vertical or horizontal.** Vertical tabs in the style of Firefox and Zen, or the classic horizontal strip.
+- **Horizontal or vertical.** The classic horizontal strip is the default, and vertical tabs in the style of Firefox and Zen are one setting away.
 - **Essentials, Pinned and regular tabs.** Essentials are icon tiles outlined in the color of their favicon. Pinned and Essential tabs have no close button, so they cannot be closed by accident.
 - **Mobile site, per tab.** A switch in the add and edit form (and "Use mobile site" in the right-click menu) makes a tab identify as Firefox on Android. Sites then serve their phone layout, which suits a narrow sidebar. The first tab, DuckDuckGo, starts with it on.
+- **Full page, per tab.** For a site that still misbehaves inside a frame, a switch in the add and edit form (and "Open as full page" in the right-click menu) loads that site as the whole sidebar instead of inside a frame. The tab bar and address bar are not shown while it is open. A small edge tab on the left of the sidebar brings them back, and so does closing and reopening the sidebar. Full page tabs are not kept loaded, and the Mobile site switch does not apply to them.
 - **Named tabs.** Give each site a name, or leave it blank to show the host or port.
 - **Tabs stay loaded.** Switching keeps each page's state, scroll position and connections.
 - **Unloaded tabs are greyed out.** Only tabs you have opened hold a page; the rest are dimmed until you click them. Right-click a loaded tab and choose **Unload tab** to free its page. Unloading the tab you are on moves you to the next loaded tab.
-- **Folders.** Group regular tabs into collapsible folders, like Firefox and Zen. A folder's icon holds up to two letters (taken from its name unless you type your own) or a preset icon. Drag tabs in and out, drag folders to reorder them, and right-click a folder to edit it, add a tab, unload its tabs, ungroup it or delete it. A collapsed folder still shows the tab you are on.
+- **Folders.** Collapsible folders live in the Pinned area, like in Zen, and any tab you put into one is pinned automatically (Essentials cannot go in folders). A folder's icon holds up to two letters (taken from its name unless you type your own) or a preset icon. Drag tabs in and out, drag folders to reorder them, and right-click a folder to edit it, add a tab, unload its tabs, ungroup it or delete it. Tabs you take out of a folder stay pinned. A collapsed folder still shows the tab you are on.
 - **Any address.** Websites, `localhost`, `127.0.0.1`, LAN IPs, `.local` names or your own domain, over http or https.
-- **Easy editing.** Double-click a tab to edit it, right-click for a menu (edit, reload, unload, mobile or desktop site, pin, add to Essentials, move to a folder, close), and drag to reorder within a group. Close a regular tab with the x that appears on hover, or with a middle-click.
+- **Easy editing.** Double-click a tab to edit it, right-click for a menu (edit, reload, unload, mobile or desktop site, open as full page, pin, add to Essentials, move to a folder, close), and drag to reorder within a group. Close a regular tab with the x that appears on hover, or with a middle-click.
 
 **Address bar**
 
@@ -93,9 +94,9 @@ This project is a fork of my earlier Self-Hosted Sidebar. It keeps the tab bar a
 ## Usage
 
 1. Open the sidebar with `Alt+Shift+W`. It starts with a DuckDuckGo tab in mobile mode.
-2. Click **New tab**, enter an address or a search (for example `wikipedia.org` or `localhost:8080`), an optional name, a type (Regular, Pinned or Essential), and choose whether to use the **Mobile site**.
-3. To change a tab later, double-click it, or right-click it and choose **Edit…**, **Use mobile site** or **Use desktop site**.
-   To group tabs, click the folder button next to **New tab** (or right-click empty space in the tab bar), or right-click a tab and choose **New folder with this tab…**.
+2. Click **New tab**, enter an address or a search (for example `wikipedia.org` or `localhost:8080`), an optional name, a type (Regular, Pinned or Essential), and choose whether to use the **Mobile site** or open it as a **Full page**.
+3. To change a tab later, double-click it, or right-click it and choose **Edit…**, **Use mobile site**, **Use desktop site** or **Open as full page**.
+   To group tabs, right-click empty space in the tab bar and choose **New folder…** (with vertical tabs there is also a folder button next to **New tab**), or right-click a tab and choose **New folder with this tab…**. Folders sit in the Pinned area, and tabs you put in one are pinned.
 4. Open the settings from the gear at the bottom of the tab bar, or from `about:addons`, to change layout, search engine, compact mode, auto-hide and appearance.
 
 To change the shortcut, open `about:addons`, click the gear icon and choose **Manage Extension Shortcuts**.
@@ -105,7 +106,7 @@ To change the shortcut, open `about:addons`, click the gear icon and choose **Ma
 | Setting         | Options                                                                                                                          |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Search engine   | DuckDuckGo, Google, Bing, Brave Search, Startpage or Ecosia. Used for anything typed in the address bar that is not an address.  |
-| Tab layout      | Vertical, or horizontal (classic strip).                                                                                         |
+| Tab layout      | Horizontal (classic strip, the default), or vertical.                                                                            |
 | Tab bar side    | Left or right of the sidebar panel (vertical tabs only).                                                                         |
 | Address bar     | Show or hide it.                                                                                                                 |
 | Compact mode    | Thin icon strip (vertical tabs only), with an option to expand on hover.                                                         |
@@ -116,7 +117,7 @@ To change the shortcut, open `about:addons`, click the gear icon and choose **Ma
 | Tab size        | Small, medium or large.                                                                                                          |
 | Essentials box  | On every Essential, only on the selected one, or off.                                                                            |
 
-The mobile site switch is per tab, so it lives in each tab's add and edit form rather than here.
+The mobile site and full page switches are per tab, so they live in each tab's add and edit form rather than here.
 
 Settings that have no effect for your current combination are greyed out.
 
@@ -124,13 +125,13 @@ Settings that have no effect for your current combination are greyed out.
 
 ## Permissions
 
-| Permission                         | Why                                                                                                                                                                                                                                                                             |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`                          | Saves your tabs (including each tab's mobile setting), your settings and each tab's recently visited pages locally.                                                                                                                                                             |
-| `http://*/*`, `https://*/*`        | Granted at install, so any site you open in a tab works without a per-site prompt. It is used to load pages and their icons, and by the two features below. The extension only contacts addresses you add or type.                                                              |
-| `webRequest`, `webRequestBlocking` | Used in two places, always for pages shown inside this extension's sidebar and never for normal tabs: removing `X-Frame-Options` and the CSP `frame-ancestors` directive so pages can load in the iframe, and sending a mobile `User-Agent` header for tabs set to Mobile site. |
+| Permission                         | Why                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`                          | Saves your tabs (including each tab's mobile setting), your settings and each tab's recently visited pages locally.                                                                                                                                                                                                                                                                                                         |
+| `http://*/*`, `https://*/*`        | Granted at install, so any site you open in a tab works without a per-site prompt. It is used to load pages and their icons, and by the two features below. The extension only contacts addresses you add or type.                                                                                                                                                                                                          |
+| `webRequest`, `webRequestBlocking` | Used in three places, always for pages shown inside this extension's sidebar and never for normal tabs: removing `X-Frame-Options` and the CSP `frame-ancestors` directive so pages can load in the iframe, sending a mobile `User-Agent` header for tabs set to Mobile site, and rewriting a few "am I framed?" checks in the scripts those pages load, which would otherwise throw inside the sidebar and break the site. |
 
-For frames in this sidebar, a small helper script (`frame-nav.js`) is also registered. It stays idle until the sidebar page greets it, reports the frame's address, title and back/forward state back to the sidebar, and makes no network requests. For tabs set to Mobile site it also makes `navigator.userAgent`, `appVersion` and `platform` match the mobile header, so sites that check in JavaScript agree with the request. No extra permission is needed for it, for the address bar, or for the copy-link button.
+For frames in this sidebar, a small helper script (`frame-nav.js`) is also registered. It stays idle until the sidebar page greets it, reports the frame's address, title and back/forward state back to the sidebar, and makes no network requests. For tabs set to Mobile site it also makes `navigator.userAgent`, `appVersion` and `platform` match the mobile header, so sites that check in JavaScript agree with the request. In a Full page tab, where the sidebar itself shows the site, the same script asks the background script whether it is running in the sidebar and only then adds a small edge tab that returns to the tab bar. It does nothing in normal tabs. No extra permission is needed for it, for the address bar, or for the copy-link button.
 
 ## Privacy
 
@@ -142,8 +143,10 @@ The extension collects no data and sends nothing to the developer or any third p
 - Mobile site changes the identity the page sees (the `User-Agent` header, and `navigator.userAgent`, `appVersion` and `platform`). It does not emulate a phone screen or touch input, so a site that decides by other signals may still show its desktop layout. Changing a tab's mobile setting reloads that tab.
 - Back and forward, the live address and the page history rely on the helper script. If it cannot run on a page, the address bar shows the tab's saved address and back and forward stay hidden.
 - Redirects and routing that a page performs while it is loading do not count as history, so Back does not appear until you navigate within the page yourself.
+- Some sites check whether they are in a frame and stop working. The extension adjusts the common checks (comparing `window.top` or `window.parent` with the window) in scripts loaded inside the sidebar, but a site that detects framing another way can still misbehave. Open it as a **Full page** tab instead. The adjustment holds each script until it has downloaded, so heavy sites can paint slightly later.
+- A Full page tab replaces the sidebar's own interface while it is open, so there is no tab bar or address bar until you click the edge tab or reopen the sidebar. It is not kept loaded and ignores the Mobile site switch.
 - For an https site with a self-signed certificate, open it once in a normal tab and accept the certificate.
-- Folders hold regular tabs only, not Pinned or Essential ones, and sit above your loose tabs. With horizontal tabs a folder is a chip followed by its tabs.
+- Folders live in the Pinned area and hold pinned tabs only (putting a tab in one pins it), so Essentials cannot go in them. They sit above your loose pinned tabs. With horizontal tabs a folder is a chip followed by its tabs.
 - Firefox unloads sidebar content when the sidebar is closed or switched to another panel (such as History), so pages reload the next time you open it.
 
 ## Development
@@ -170,13 +173,13 @@ There is no build step.
 
 Files:
 
-| File                         | Purpose                                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------- |
-| `manifest.json`              | Extension manifest.                                                                           |
-| `background.js`              | Removes frame-blocking headers, sends the mobile User-Agent and registers the helper script.  |
-| `frame-nav.js`               | Helper script that reports back/forward state and address, and aligns `navigator` for mobile. |
-| `sidebar.html`, `sidebar.js` | The sidebar: tab bar, address bar, history menu, add and edit form.                           |
-| `options.html`, `options.js` | The settings page.                                                                            |
+| File                         | Purpose                                                                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json`              | Extension manifest.                                                                                                                       |
+| `background.js`              | Removes frame-blocking headers, sends the mobile User-Agent, adjusts framing checks in scripts and registers the helper script.           |
+| `frame-nav.js`               | Helper script that reports back/forward state and address, aligns `navigator` for mobile, and adds the return edge tab on Full page tabs. |
+| `sidebar.html`, `sidebar.js` | The sidebar: tab bar, address bar, history menu, add and edit form.                                                                       |
+| `options.html`, `options.js` | The settings page.                                                                                                                        |
 
 Issues and pull requests are welcome. Please ensure you fork the repository and submit all Pull Requests to the `dev` branch, as this project follows a `dev` -> `main` workflow.
 

@@ -61,8 +61,28 @@ const GLYPHS = {
 const FOLDER_BACK =
   "M3.5 .5H7.4C7.9 .5 8.3 .7 8.6 1.1L9.5 2.2C9.8 2.6 10.2 2.8 10.7 2.8H16.5A3 3 0 0 1 19.5 5.8V12.5A3 3 0 0 1 16.5 15.5H3.5A3 3 0 0 1 .5 12.5V3.5A3 3 0 0 1 3.5 .5Z";
 const FOLDER_FRONT = "M4.6 6.4H19.2L17.1 15.5H.9Z";
-const FOLDER_CLOSED = `<path d="${FOLDER_BACK}"/>`;
-const FOLDER_OPEN = `<path class="back" d="${FOLDER_BACK}"/><path class="front" d="${FOLDER_FRONT}"/>`;
+// [path data, optional class] pairs, drawn by svgEl
+const FOLDER_CLOSED = [[FOLDER_BACK]];
+const FOLDER_OPEN = [
+  [FOLDER_BACK, "back"],
+  [FOLDER_FRONT, "front"],
+];
+
+// Builds an inline <svg> from path data with DOM calls (no HTML strings).
+function svgEl(viewBox, paths, cls) {
+  const NS = "http://www.w3.org/2000/svg";
+  const s = document.createElementNS(NS, "svg");
+  s.setAttribute("viewBox", viewBox);
+  s.setAttribute("aria-hidden", "true");
+  if (cls) s.setAttribute("class", cls);
+  for (const [d, c] of paths) {
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", d);
+    if (c) p.setAttribute("class", c);
+    s.append(p);
+  }
+  return s;
+}
 // icon = favicon/glyph size, tab = tab height, tile = width of the icon column (compact tile),
 // tabH = tab height in the horizontal layout, fs = label font size. "medium" follows Zen's own sidebar.
 const SIZES = {
@@ -786,11 +806,11 @@ function initials(name) {
 function folderIcon(icon, name, open) {
   const el = document.createElement("span");
   el.className = "icon ficon" + (open ? " open" : "");
-  el.innerHTML = `<svg class="shape" viewBox="0 0 20 16" aria-hidden="true">${open ? FOLDER_OPEN : FOLDER_CLOSED}</svg>`;
+  el.append(svgEl("0 0 20 16", open ? FOLDER_OPEN : FOLDER_CLOSED, "shape"));
   const inner = document.createElement("span");
   inner.className = "fin";
   if (icon.type === "glyph" && GLYPHS[icon.name]) {
-    inner.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${GLYPHS[icon.name]}"/></svg>`;
+    inner.append(svgEl("0 0 16 16", [[GLYPHS[icon.name]]]));
   } else {
     const text = icon.type === "text" ? icon.text : initials(name);
     inner.textContent = text;
@@ -822,7 +842,7 @@ function makeFolder(f, kids) {
   text.textContent = label;
   const chev = document.createElement("span");
   chev.className = "chev";
-  chev.innerHTML = '<svg viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></svg>';
+  chev.append(svgEl("0 0 16 16", [["M6 4l4 4-4 4"]]));
   head.append(folderIcon(f.icon, f.name, !f.collapsed), text, chev);
   wrap.append(head);
 
@@ -1625,7 +1645,7 @@ for (const name of Object.keys(GLYPHS)) {
   b.dataset.name = name;
   b.title = name;
   b.setAttribute("role", "radio");
-  b.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${GLYPHS[name]}"/></svg>`;
+  b.append(svgEl("0 0 16 16", [[GLYPHS[name]]]));
   b.onclick = () => {
     fGlyph = name;
     syncFolderForm();
