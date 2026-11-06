@@ -8,7 +8,7 @@ const SEED = [
   },
 ];
 const DEFAULTS = {
-  layout: "vertical",
+  layout: "horizontal",
   placement: "left",
   compact: false,
   autohide: "none",
@@ -210,15 +210,18 @@ async function load() {
   const folderIds = new Set(folders.map((f) => f.id));
   const tabs = (Array.isArray(s.tabs) ? s.tabs : structuredClone(SEED)).map(
     (t) => {
-      const kind = KINDS.includes(t.kind) ? t.kind : "regular";
+      let kind = KINDS.includes(t.kind) ? t.kind : "regular";
+      // Folders live in the Pinned area, so every tab in one is pinned (older versions
+      // allowed regular tabs in folders; they are pinned here).
+      const inFolder = kind !== "essential" && folderIds.has(t.folder);
+      if (inFolder) kind = "pinned";
       return {
         ...t,
         name: t.name || "",
         kind,
         mobile: t.mobile === true,
         direct: t.direct === true,
-        // only regular tabs live in folders
-        folder: kind === "regular" && folderIds.has(t.folder) ? t.folder : null,
+        folder: inFolder ? t.folder : null,
       };
     },
   );
@@ -630,16 +633,15 @@ async function render() {
   const { tabs, activeId } = model;
   const by = { essential: [], pinned: [], regular: [] };
   for (const t of tabs) by[t.kind].push(t);
-  for (const k of KINDS) {
-    groups[k].replaceChildren(
-      ...(k === "regular" ? makeRegular(by.regular) : by[k].map(makeTab)),
-    );
-    if (k !== "regular") groups[k].hidden = by[k].length === 0;
-  }
-  $("sepA").hidden = !(by.essential.length && by.pinned.length);
+  groups.essential.replaceChildren(...by.essential.map(makeTab));
+  groups.pinned.replaceChildren(...makePinned(by.pinned));
+  groups.regular.replaceChildren(...by.regular.map(makeTab));
+  const hasPinned = by.pinned.length > 0 || model.folders.length > 0;
+  groups.essential.hidden = by.essential.length === 0;
+  groups.pinned.hidden = !hasPinned;
+  $("sepA").hidden = !(by.essential.length && hasPinned);
   $("sep").hidden =
-    !(by.essential.length || by.pinned.length) ||
-    !(by.regular.length || model.folders.length);
+    !(by.essential.length || hasPinned) || by.regular.length === 0;
 
   for (const [id, f] of made) {
     if (!tabs.some((t) => t.id === id)) {
@@ -759,7 +761,8 @@ function xIcon() {
 
 // Folders sit above the loose tabs, in their own order; tabs inside a folder keep the order they
 // have in the tab list.
-function makeRegular(list) {
+// The Pinned area: folders first, then pinned tabs that are not in a folder.
+function makePinned(list) {
   const nodes = model.folders.map((f) =>
     makeFolder(
       f,
@@ -870,7 +873,8 @@ function makeFolder(f, kids) {
       head.classList.add(isAfter(e) ? "drop-after" : "drop-before");
     } else if (
       dragId &&
-      model.tabs.find((x) => x.id === dragId)?.kind === "regular"
+      (model.tabs.find((x) => x.id === dragId)?.kind ?? "essential") !==
+        "essential"
     ) {
       e.preventDefault(); // drop a tab into the folder
       clearDropMarks();
@@ -1031,7 +1035,7 @@ async function moveTab(fromId, toId, after) {
 async function moveTabIntoFolder(id, folderId) {
   const tabs = model.tabs.slice();
   const fi = tabs.findIndex((t) => t.id === id);
-  if (fi < 0 || tabs[fi].kind !== "regular") return;
+  if (fi < 0 || tabs[fi].kind === "essential") return;
   const [item] = tabs.splice(fi, 1);
   let last = -1;
   tabs.forEach((t, i) => {
@@ -1039,6 +1043,7 @@ async function moveTabIntoFolder(id, folderId) {
   });
   tabs.splice(last < 0 ? tabs.length : last + 1, 0, {
     ...item,
+    kind: "pinned", // a tab put into a folder is pinned
     folder: folderId,
   });
   // open the folder so the tab is seen arriving
@@ -1106,12 +1111,12 @@ function markLoaded() {
 
 // Tabs in the order they appear in the bar.
 function orderedTabs() {
-  const regular = model.tabs.filter((t) => t.kind === "regular");
+  const pinned = model.tabs.filter((t) => t.kind === "pinned");
   return [
     ...model.tabs.filter((t) => t.kind === "essential"),
-    ...model.tabs.filter((t) => t.kind === "pinned"),
-    ...model.folders.flatMap((f) => regular.filter((t) => t.folder === f.id)),
-    ...regular.filter((t) => !t.folder),
+    ...model.folders.flatMap((f) => pinned.filter((t) => t.folder === f.id)),
+    ...pinned.filter((t) => !t.folder),
+    ...model.tabs.filter((t) => t.kind === "regular"),
   ];
 }
 
@@ -1165,7 +1170,7 @@ async function setDirect(id, direct) {
 async function setKind(id, kind) {
   const tabs = model.tabs.map((t) =>
     t.id === id
-      ? { ...t, kind, folder: kind === "regular" ? t.folder : null }
+      ? { ...t, kind, folder: kind === "pinned" ? t.folder : null }
       : t,
   );
   await browser.storage.local.set({ tabs });
@@ -1459,8 +1464,8 @@ function openMenu(e, id) {
     ],
     ["Make regular", () => setKind(id, "regular"), t.kind === "regular"],
   ];
-  // Folders and Close only apply to regular tabs.
-  if (t.kind === "regular") {
+  // Folders live in the Pinned area; putting a tab in one pins it.
+  if (t.kind !== "essential") {
     items.push(null);
     if (t.folder)
       items.push(["Remove from folder", () => removeFromFolder(id)]);
@@ -1471,8 +1476,8 @@ function openMenu(e, id) {
           () => moveTabIntoFolder(id, f.id),
         ]);
     items.push(["New folder with this tab…", () => openFolderPanel(null, id)]);
-    items.push(null, ["Close tab", () => closeTab(id)]);
   }
+  if (t.kind === "regular") items.push(null, ["Close tab", () => closeTab(id)]);
   showMenu(e, items);
 }
 
@@ -1536,7 +1541,7 @@ function openPanel(id, folderId) {
   formTitle.textContent = t ? "Edit tab" : "Add tab";
   nameIn.value = t ? t.name : "";
   urlIn.value = t ? t.url : "";
-  form.elements.kind.value = t ? t.kind : "regular";
+  form.elements.kind.value = t ? t.kind : pendingFolder ? "pinned" : "regular";
   mobileIn.checked = t ? t.mobile === true : false;
   directIn.checked = t ? t.direct === true : false;
   $("save").textContent = t ? "Save" : "Add";
@@ -1585,14 +1590,15 @@ form.onsubmit = async (e) => {
   const at = editingId ? tabs.findIndex((t) => t.id === editingId) : -1;
   if (at >= 0) {
     tabs[at] = { ...tabs[at], ...entry };
-    if (entry.kind !== "regular") tabs[at].folder = null;
+    if (entry.kind !== "pinned") tabs[at].folder = null;
     id = tabs[at].id;
   } else {
     id = crypto.randomUUID();
     const folder =
-      entry.kind === "regular" && model.folders.some((f) => f.id === into)
+      entry.kind !== "essential" && model.folders.some((f) => f.id === into)
         ? into
         : null;
+    if (folder) entry.kind = "pinned";
     tabs.push({ id, ...entry, folder });
     if (folder)
       patch.folders = model.folders.map((f) =>
@@ -1693,7 +1699,9 @@ folderForm.onsubmit = async (e) => {
   const patch = { folders };
   if (folderWithTab)
     patch.tabs = model.tabs.map((t) =>
-      t.id === folderWithTab && t.kind === "regular" ? { ...t, folder: id } : t,
+      t.id === folderWithTab && t.kind !== "essential"
+        ? { ...t, kind: "pinned", folder: id }
+        : t,
     );
   closeFolderPanel();
   await browser.storage.local.set(patch);

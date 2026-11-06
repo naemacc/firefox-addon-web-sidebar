@@ -230,6 +230,16 @@
         overflow-y: auto;
         scrollbar-width: thin;
       }
+      /* vertical tabs: a long Pinned area (folders) scrolls instead of pushing everything off */
+      #app[data-layout="vertical"] #pinned {
+        flex: 0 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+      }
+      #app[data-layout="horizontal"] .fkids .tab.pinned {
+        padding: 0;
+      }
       .sep {
         flex: none;
         height: 1px;
