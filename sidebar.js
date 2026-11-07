@@ -1727,16 +1727,18 @@ folderForm.onsubmit = async (e) => {
   await browser.storage.local.set(patch);
 };
 
-groups.regular.addEventListener(
-  "wheel",
-  (e) => {
-    if (model.layout === "horizontal" && e.deltaY) {
-      groups.regular.scrollLeft += e.deltaY;
-      e.preventDefault();
-    }
-  },
-  { passive: false },
-);
+// Horizontal strip: the mouse wheel scrolls whichever group is under the pointer sideways.
+for (const g of Object.values(groups))
+  g.addEventListener(
+    "wheel",
+    (e) => {
+      if (model.layout === "horizontal" && e.deltaY) {
+        g.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    },
+    { passive: false },
+  );
 
 $("add").onclick = () => openPanel(null);
 $("addfolder").onclick = () => openFolderPanel(null);

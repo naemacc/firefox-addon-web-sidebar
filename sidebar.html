@@ -395,29 +395,33 @@
         display: grid;
         place-items: center;
         color: var(--bg);
-        font-size: calc(var(--icon) * 0.6);
-        font-weight: 700;
+        font-size: calc(var(--icon) * 0.74);
+        font-weight: 800;
         line-height: 1;
         letter-spacing: -0.02em;
         pointer-events: none;
       }
       .fin[data-n="2"] {
-        font-size: calc(var(--icon) * 0.48);
+        font-size: calc(var(--icon) * 0.6);
       }
       .fin[data-n="3"] {
-        font-size: calc(var(--icon) * 0.36);
+        font-size: calc(var(--icon) * 0.44);
       }
       .ficon.open .fin {
         left: 8%;
         top: 42%;
         height: 52%;
+        font-size: calc(var(--icon) * 0.62);
       }
       .ficon.open .fin[data-n="2"] {
-        font-size: calc(var(--icon) * 0.44);
+        font-size: calc(var(--icon) * 0.52);
+      }
+      .ficon.open .fin[data-n="3"] {
+        font-size: calc(var(--icon) * 0.4);
       }
       .fin svg {
-        width: calc(var(--icon) * 0.6);
-        height: calc(var(--icon) * 0.6);
+        width: calc(var(--icon) * 0.68);
+        height: calc(var(--icon) * 0.68);
         fill: none;
         stroke: currentColor;
         stroke-width: 2;
@@ -425,8 +429,8 @@
         stroke-linejoin: round;
       }
       .ficon.open .fin svg {
-        width: calc(var(--icon) * 0.5);
-        height: calc(var(--icon) * 0.5);
+        width: calc(var(--icon) * 0.56);
+        height: calc(var(--icon) * 0.56);
       }
       .chev {
         flex: none;
@@ -708,6 +712,23 @@
       }
       #app[data-layout="horizontal"] #pinned {
         flex-direction: row;
+      }
+      /* Essentials, Pinned (with folders) and regular tabs share the strip. Each can shrink and
+         scrolls sideways, so a wide folder cannot push the regular tabs out of reach. The
+         negative margin gives outlines room that overflow would otherwise clip. */
+      #app[data-layout="horizontal"] #essentials,
+      #app[data-layout="horizontal"] #pinned {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        padding-block: 3px;
+        margin-block: -3px;
+      }
+      #app[data-layout="horizontal"] #regular {
+        padding-block: 3px;
+        margin-block: -3px;
       }
       #app[data-layout="horizontal"] #regular {
         flex-direction: row;
