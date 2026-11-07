@@ -1,5 +1,5 @@
 <!--
-  TODO before publishing:
+  TODO:
   - Replace the placeholder screenshots in preview-pictures/ (file names below).
   - Replace YOUR-USER/YOUR-REPO and the AMO link with this fork's real addresses.
 -->
@@ -153,22 +153,24 @@ The extension collects no data and sends nothing to the developer or any third p
 
 There is no build step.
 
+> **Note:** These instructions use `bunx` for speed, but you can still use `npx` perfectly fine if you prefer (just replace `bunx` with `npx` in the commands below).
+
 1. Check the extension
 
    ```bash
-   npx web-ext lint
+   bunx web-ext lint
    ```
 
 2. Launch in a temporary Firefox profile
 
    ```bash
-   npx web-ext run
+   bunx web-ext run
    ```
 
 3. Create the zip
 
    ```bash
-   npx web-ext build
+   bunx web-ext build
    ```
 
 Files:

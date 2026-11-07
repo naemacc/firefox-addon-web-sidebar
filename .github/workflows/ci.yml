@@ -17,15 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
+          bun-version: latest
 
       - name: Lint extension
-        run: npx --yes web-ext lint
+        run: bunx web-ext lint
 
       - name: Build extension zip
-        run: npx --yes web-ext build
+        run: bunx web-ext build
 
       - name: Upload zip
         uses: actions/upload-artifact@v6
