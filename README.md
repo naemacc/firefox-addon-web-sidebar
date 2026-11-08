@@ -71,7 +71,7 @@ This project is a fork of my earlier Self-Hosted Sidebar. It keeps the tab bar a
 
 **Address bar**
 
-- **Back, forward and reload.** Back and forward only appear when there is somewhere to go. Hard reload (ignores the cache, like Ctrl+F5): Shift+click or right-click the Reload button, or use the tab's right-click menu.
+- **Back, forward and reload.** Back and forward only appear when there is somewhere to go. Hard reload (also removes the site's service workers and cache storage): Shift+click or right-click the Reload button, or use the tab's right-click menu. "Clear site data & reload" in the same menus wipes the site's cookies and storage (asks for the optional browsing data permission the first time).
 - **Address field with a copy-link button.** Type an address and press Enter to go there. Anything that is not an address is searched with the engine you chose.
 - **Search engines.** DuckDuckGo, Google, Bing, Brave Search, Startpage or Ecosia.
 - **Page history for each tab.** A button on the right lists the pages you visited in that tab, so you can jump straight to one.

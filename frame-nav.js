@@ -127,6 +127,16 @@
   // stored copy and save the fresh one, and the normal reload that follows picks those up.
   // Only addresses this page already loaded are fetched; nothing is read or sent anywhere.
   async function hardReload() {
+    // A service worker or Cache Storage entry keeps serving an old copy however often the page is
+    // reloaded, so remove this site's workers and caches first. Logins and settings are kept.
+    try {
+      const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+      await Promise.all(regs.map((r) => r.unregister()));
+    } catch {}
+    try {
+      const keys = (await window.caches?.keys?.()) || [];
+      await Promise.all(keys.map((k) => window.caches.delete(k)));
+    } catch {}
     const urls = new Set([location.href]);
     try {
       for (const r of performance.getEntriesByType("resource"))

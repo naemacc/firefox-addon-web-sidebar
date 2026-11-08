@@ -636,18 +636,54 @@ function reloadTab(id, hard) {
   if (info?.live)
     f.contentWindow.postMessage({ ssb: "reload", hard: hard === true }, "*"); // no new entry
   else goFrame(f, info?.url || t.url, true);
-  if (hard) toast("Hard reload: fetching the page without the cache…");
+  if (hard) toast("Hard reload: clearing this site\u2019s caches…");
+}
+
+// "Clear site data & reload": what Firefox's own "clear cookies and site data" does for one site,
+// for when even a hard reload keeps showing an old version. It also signs the site out. The
+// browsingData permission is optional and asked for the first time this is used.
+async function clearSiteData(id) {
+  const t = model.tabs.find((x) => x.id === id);
+  if (!t) return;
+  let host;
+  try {
+    host = new URL(navInfo.get(id)?.url || t.url).hostname;
+  } catch {
+    return;
+  }
+  // permissions.request must be the first thing awaited, to count as a response to the click
+  const ok = await browser.permissions
+    .request({ permissions: ["browsingData"] })
+    .catch(() => false);
+  if (!ok) return toast("Clearing site data needs the browsing data permission.");
+  const opts = { hostnames: [host] };
+  try {
+    await browser.browsingData.remove(opts, {
+      cookies: true,
+      localStorage: true,
+      indexedDB: true,
+      serviceWorkers: true,
+    });
+    // the HTTP cache by host is not supported everywhere, so it is its own attempt
+    await browser.browsingData.remove(opts, { cache: true }).catch(() => {});
+  } catch (err) {
+    return toast("Could not clear site data: " + (err?.message || err));
+  }
+  toast(`Cleared site data for ${host}. Reloading…`);
+  const f = made.get(id);
+  if (f) goFrame(f, navInfo.get(id)?.url || t.url, true);
 }
 
 $("back").onclick = () => step("back");
 $("forward").onclick = () => step("forward");
-// Shift+click or right-click on Reload does a hard reload (the same shortcuts Firefox uses).
+// Shift+click or right-click on Reload for hard reload or clearing site data.
 $("reload").onclick = (e) => reloadTab(model.activeId, e.shiftKey);
 $("reload").oncontextmenu = (e) => {
   e.preventDefault();
   showMenu(e, [
     ["Reload", () => reloadTab(model.activeId)],
-    ["Hard reload (ignore cache)", () => reloadTab(model.activeId, true)],
+    ["Hard reload (clear caches)", () => reloadTab(model.activeId, true)],
+    ["Clear site data & reload…", () => clearSiteData(model.activeId)],
   ]);
 };
 
@@ -1480,7 +1516,8 @@ function openMenu(e, id) {
   const items = [
     ["Edit…", () => openPanel(id)],
     ["Reload", () => reloadTab(id)],
-    ["Hard reload (ignore cache)", () => reloadTab(id, true)],
+    ["Hard reload (clear caches)", () => reloadTab(id, true)],
+    ["Clear site data & reload…", () => clearSiteData(id)],
     ["Unload tab", () => unloadTab(id), !canUnload],
     [
       t.mobile ? "Use desktop site" : "Use mobile site",
@@ -1758,17 +1795,6 @@ for (const g of Object.values(groups))
 $("add").onclick = () => openPanel(null);
 $("addfolder").onclick = () => openFolderPanel(null);
 $("cancel").onclick = closePanel;
-// F5 / Ctrl+R reload, Ctrl+F5 / Ctrl+Shift+R hard reload, while the focus is in the sidebar's own
-// UI (keys pressed inside a framed page go to that page and cannot be seen from here).
-document.addEventListener("keydown", (e) => {
-  const k = e.key.toLowerCase();
-  const ctrl = e.ctrlKey || e.metaKey;
-  if (!(k === "f5" || (ctrl && k === "r"))) return;
-  if (!model.activeId || !made.has(model.activeId)) return;
-  if (e.target.closest?.("input, textarea")) return;
-  e.preventDefault();
-  reloadTab(model.activeId, ctrl ? e.shiftKey || k === "f5" : e.shiftKey);
-});
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!hmenu.hidden) closeHistory();
