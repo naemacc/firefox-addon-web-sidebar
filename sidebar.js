@@ -655,14 +655,9 @@ async function clearSiteData(id) {
   const ok = await browser.permissions
     .request({ permissions: ["browsingData"] })
     .catch(() => false);
-  if (!ok)
-    return toast("Clearing site data needs the browsing data permission.");
+  if (!ok) return toast("Clearing site data needs the browsing data permission.");
   // Pages in a frame keep their cache and storage separate from normal tabs ("partitioned"), so
   // each step is tried on its own and the result is reported instead of hidden.
-  let origin = "";
-  try {
-    origin = new URL(navInfo.get(id)?.url || t.url).origin;
-  } catch {}
   const types = {
     cookies: true,
     localStorage: true,
@@ -670,14 +665,7 @@ async function clearSiteData(id) {
     serviceWorkers: true,
   };
   const steps = [
-    [
-      "by host",
-      () => browser.browsingData.remove({ hostnames: [host] }, types),
-    ],
-    [
-      "by origin",
-      () => browser.browsingData.remove({ origins: [origin] }, types),
-    ],
+    ["by host", () => browser.browsingData.remove({ hostnames: [host] }, types)],
     // the HTTP cache cannot be cleared per site, so all of it goes (it only costs speed)
     ["cache", () => browser.browsingData.removeCache({})],
   ];
@@ -691,8 +679,17 @@ async function clearSiteData(id) {
     }
   }
   toast(`Site data for ${host}: ${report.join(", ")}. Reloading…`);
+  // Build the page's frame again from nothing rather than navigating the old one, so no old
+  // document or worker is kept alive.
   const f = made.get(id);
-  if (f) goFrame(f, navInfo.get(id)?.url || t.url, true);
+  if (f) {
+    f.src = "about:blank";
+    f.remove();
+    made.delete(id);
+    navInfo.delete(id);
+  }
+  await new Promise((r) => setTimeout(r, 400));
+  scheduleRender();
 }
 
 $("back").onclick = () => step("back");
