@@ -655,21 +655,42 @@ async function clearSiteData(id) {
   const ok = await browser.permissions
     .request({ permissions: ["browsingData"] })
     .catch(() => false);
-  if (!ok) return toast("Clearing site data needs the browsing data permission.");
-  const opts = { hostnames: [host] };
+  if (!ok)
+    return toast("Clearing site data needs the browsing data permission.");
+  // Pages in a frame keep their cache and storage separate from normal tabs ("partitioned"), so
+  // each step is tried on its own and the result is reported instead of hidden.
+  let origin = "";
   try {
-    await browser.browsingData.remove(opts, {
-      cookies: true,
-      localStorage: true,
-      indexedDB: true,
-      serviceWorkers: true,
-    });
-    // the HTTP cache by host is not supported everywhere, so it is its own attempt
-    await browser.browsingData.remove(opts, { cache: true }).catch(() => {});
-  } catch (err) {
-    return toast("Could not clear site data: " + (err?.message || err));
+    origin = new URL(navInfo.get(id)?.url || t.url).origin;
+  } catch {}
+  const types = {
+    cookies: true,
+    localStorage: true,
+    indexedDB: true,
+    serviceWorkers: true,
+  };
+  const steps = [
+    [
+      "by host",
+      () => browser.browsingData.remove({ hostnames: [host] }, types),
+    ],
+    [
+      "by origin",
+      () => browser.browsingData.remove({ origins: [origin] }, types),
+    ],
+    // the HTTP cache cannot be cleared per site, so all of it goes (it only costs speed)
+    ["cache", () => browser.browsingData.removeCache({})],
+  ];
+  const report = [];
+  for (const [label, run] of steps) {
+    try {
+      await run();
+      report.push(label + " ok");
+    } catch (err) {
+      report.push(`${label} failed (${err?.message || err})`);
+    }
   }
-  toast(`Cleared site data for ${host}. Reloading…`);
+  toast(`Site data for ${host}: ${report.join(", ")}. Reloading…`);
   const f = made.get(id);
   if (f) goFrame(f, navInfo.get(id)?.url || t.url, true);
 }
