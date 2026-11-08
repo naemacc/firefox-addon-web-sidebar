@@ -627,19 +627,29 @@ function goFrame(f, url, replace) {
   }
 }
 
-function reloadTab(id) {
+// hard = like Ctrl+F5: the page and the files it loaded are fetched again, ignoring the cache.
+function reloadTab(id, hard) {
   const f = made.get(id);
   const t = model.tabs.find((x) => x.id === id);
   if (!f || !t) return select(id);
   const info = navInfo.get(id);
   if (info?.live)
-    f.contentWindow.postMessage({ ssb: "reload" }, "*"); // location.reload(): no new entry
+    f.contentWindow.postMessage({ ssb: "reload", hard: hard === true }, "*"); // no new entry
   else goFrame(f, info?.url || t.url, true);
+  if (hard) toast("Hard reload: fetching the page without the cache…");
 }
 
 $("back").onclick = () => step("back");
 $("forward").onclick = () => step("forward");
-$("reload").onclick = () => reloadTab(model.activeId);
+// Shift+click or right-click on Reload does a hard reload (the same shortcuts Firefox uses).
+$("reload").onclick = (e) => reloadTab(model.activeId, e.shiftKey);
+$("reload").oncontextmenu = (e) => {
+  e.preventDefault();
+  showMenu(e, [
+    ["Reload", () => reloadTab(model.activeId)],
+    ["Hard reload (ignore cache)", () => reloadTab(model.activeId, true)],
+  ]);
+};
 
 /* ---------- rendering ---------- */
 
@@ -981,7 +991,11 @@ function makeTab(t) {
 
   const isAfter = (e) => {
     const r = el.getBoundingClientRect();
-    return t.kind === "essential" || model.layout === "horizontal"
+    // essentials sit side by side, except in the compact bar where they form one column
+    const sideBySide =
+      model.layout === "horizontal" ||
+      (t.kind === "essential" && !rail.classList.contains("collapsed"));
+    return sideBySide
       ? e.clientX > r.left + r.width / 2
       : e.clientY > r.top + r.height / 2;
   };
@@ -1466,6 +1480,7 @@ function openMenu(e, id) {
   const items = [
     ["Edit…", () => openPanel(id)],
     ["Reload", () => reloadTab(id)],
+    ["Hard reload (ignore cache)", () => reloadTab(id, true)],
     ["Unload tab", () => unloadTab(id), !canUnload],
     [
       t.mobile ? "Use desktop site" : "Use mobile site",
@@ -1743,6 +1758,17 @@ for (const g of Object.values(groups))
 $("add").onclick = () => openPanel(null);
 $("addfolder").onclick = () => openFolderPanel(null);
 $("cancel").onclick = closePanel;
+// F5 / Ctrl+R reload, Ctrl+F5 / Ctrl+Shift+R hard reload, while the focus is in the sidebar's own
+// UI (keys pressed inside a framed page go to that page and cannot be seen from here).
+document.addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (!(k === "f5" || (ctrl && k === "r"))) return;
+  if (!model.activeId || !made.has(model.activeId)) return;
+  if (e.target.closest?.("input, textarea")) return;
+  e.preventDefault();
+  reloadTab(model.activeId, ctrl ? e.shiftKey || k === "f5" : e.shiftKey);
+});
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!hmenu.hidden) closeHistory();

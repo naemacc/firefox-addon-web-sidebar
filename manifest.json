@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "author": "Naem",
   "name": "Web Sidebar",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "A mini browser in your sidebar. Open any website as a named tab, with an address bar, search, back/forward and history. No data collection.",
   "browser_specific_settings": {
     "gecko": {

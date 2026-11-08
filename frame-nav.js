@@ -122,6 +122,29 @@
     setTimeout(report, 150);
   }
 
+  // Hard reload: a script cannot ask location.reload() to skip the cache, so first fetch the page
+  // and every file it has loaded so far with cache: "reload". That makes the browser skip its
+  // stored copy and save the fresh one, and the normal reload that follows picks those up.
+  // Only addresses this page already loaded are fetched; nothing is read or sent anywhere.
+  async function hardReload() {
+    const urls = new Set([location.href]);
+    try {
+      for (const r of performance.getEntriesByType("resource"))
+        if (/^https?:/.test(r.name) && urls.size < 400) urls.add(r.name);
+    } catch {}
+    const one = (u) =>
+      fetch(u, {
+        cache: "reload",
+        credentials: "include",
+        mode: u.startsWith(location.origin) ? "same-origin" : "no-cors",
+        signal: AbortSignal.timeout(6000),
+      }).catch(() => {});
+    try {
+      await Promise.all([...urls].map(one));
+    } catch {}
+    location.reload();
+  }
+
   window.addEventListener("message", (e) => {
     if (e.origin !== EXT) return; // only our sidebar page may talk to us
     const m = e.data;
@@ -139,7 +162,8 @@
     } else if (m.ssb === "back" || m.ssb === "forward") {
       step(m.ssb);
     } else if (m.ssb === "reload") {
-      location.reload(); // reloads in place without adding a history entry
+      if (m.hard === true) hardReload();
+      else location.reload(); // reloads in place without adding a history entry
     }
   });
 })();
